@@ -1,0 +1,569 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Crayon Crew</title>
+<style>html,body{margin:0;height:100%;overflow:hidden;background:#f4ecd8;font-family:"Comic Sans MS","Segoe Print",cursive}
+#go{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-size:5vh;color:#5a4a3a;background:#f4ecd8cc;cursor:pointer;z-index:2}
+canvas{display:block;width:100vw;height:100vh;image-rendering:auto}
+#t{position:fixed;left:2vw;bottom:2vh;color:#8a7a66;font-size:2vh}</style></head>
+<body><div id="go">🖍️ click to start the crayon crew</div><canvas id="c"></canvas>
+<div id="t">KeysGroove · 96 BPM · crayon crew (low-res on purpose, for snappy motion)</div>
+<audio id="a" loop></audio>
+<script>
+const c=document.getElementById("c"),x=c.getContext("2d"),A=document.getElementById("a"),BPM=96,APP=location.search.includes("app");   // ?app = compact window beside YT
+// low internal resolution (scaled up) = responsive
+function fit(){c.width=Math.round(innerWidth/2);c.height=Math.round(innerHeight/2)}fit();addEventListener("resize",fit);
+let seed=1;function rnd(){seed=(seed*16807)%2147483647;return seed/2147483647}
+function jit(v,a){return v+(Math.random()-.5)*a}
+function crayonLine(pts,col,w){for(let pass=0;pass<2;pass++){x.strokeStyle=col;x.globalAlpha=.65;x.lineWidth=w*(pass?0.6:1);x.lineCap="round";x.beginPath();
+ pts.forEach((p,i)=>{const X=jit(p[0],2.2),Y=jit(p[1],2.2);i?x.lineTo(X,Y):x.moveTo(X,Y)});x.stroke()}x.globalAlpha=1}
+function blob(cx,cy,rx,ry,col,w=3,fill){const pts=[];for(let i=0;i<=24;i++){const a=i/24*6.283;pts.push([cx+Math.cos(a)*rx*(1+(Math.random()-.5)*.06),cy+Math.sin(a)*ry*(1+(Math.random()-.5)*.06)])}
+ if(fill){x.fillStyle=fill;x.globalAlpha=.35;x.beginPath();pts.forEach((p,i)=>i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]));x.fill();x.globalAlpha=1}crayonLine(pts,col,w)}
+function arm(sx,sy,len,ang,col){const ex=sx+Math.cos(ang)*len,ey=sy+Math.sin(ang)*len;crayonLine([[sx,sy],[(sx+ex)/2,(sy+ey)/2-4],[ex,ey]],col,3);
+ crayonLine([[ex,ey],[ex+Math.cos(ang-0.6)*6,ey+Math.sin(ang-0.6)*6]],col,2);crayonLine([[ex,ey],[ex+Math.cos(ang+0.6)*6,ey+Math.sin(ang+0.6)*6]],col,2)}
+function eye(cx,cy,r){blob(cx,cy,r,r,"#333",1.5,"#fff");x.fillStyle="#222";x.beginPath();x.arc(cx,cy,r*.45,0,7);x.fill()}
+// cast: [name, color, fill, size, draw extras]
+const CAST=[
+ ["Sassy","#6b4a2a","#8b5e34",1.25,(X,Y,s,b)=>{window.INEEDA_FS=Math.round(6*s);for(let i=-3;i<=3;i++)crayonLine([[X+i*7*s,Y-20*s],[X+i*8*s,Y-34*s]],"#5a3a1a",2);   // spikes
+   crayonLine([[X+10*s,Y-26*s],[X+16*s,Y-58*s]],"#7a4a2a",2.5);eye(X+16*s,Y-62*s,5*s);                                         // eye stem
+   // iNeeda sits on the eyeball with a cup o' joe, moving slightly and taking an occasional sip (owner ~22:3x)
+   if(!window.FALLING){const tn=performance.now()/1000,ix=X+16*s+Math.sin(tn*0.7)*0.8*s,iy=Y-74*s+Math.sin(tn*1.1)*0.4*s,sipC=(tn%13)/13,sip=sipC>0.85?Math.sin((sipC-0.85)/0.15*Math.PI):0;
+    blob(ix,iy,6*s,5*s,"#7a5cc8",2,"#b49cff");
+    const cx=ix+6*s-sip*4*s,cy=iy+1*s-sip*4*s;x.fillStyle="#f4ecd8";x.strokeStyle="#6a4a2a";x.lineWidth=1.2;x.fillRect(cx-1.6*s,cy-2*s,3.2*s,3.6*s);x.strokeRect(cx-1.6*s,cy-2*s,3.2*s,3.6*s);   // the mug
+    x.fillStyle="#5a3a1a";x.fillRect(cx-1.3*s,cy-1.7*s,2.6*s,0.8*s);x.beginPath();x.arc(cx+2.2*s,cy,0.9*s,-1.5,1.5);x.stroke();                     // coffee + handle
+    if(!sip)for(let k=0;k<2;k++){const ph=(tn*0.6+k*0.5)%1;x.globalAlpha=0.5*(1-ph);crayonLine([[cx-0.5*s+k*s,cy-2.5*s],[cx+Math.sin(ph*6)*s+k*s,cy-2.5*s-ph*5*s]],"#bbb",1);x.globalAlpha=1}}   // steam
+   crayonLine([[X-12*s,Y-6*s],[X+12*s,Y-6*s]],"#222",3);                                                                    // Sassy's shades
+   {const px=X+13*s,py=Y-7*s,L=46*s,k=(performance.now()/9000)%1;   // ToF light: one slow back-and-forth every 9 s (a tenth of the old speed - owner ~22:2x: "nauseating")                                                         // ToF pod on Sassy's shades
+    blob(px,py,3*s,2.4*s,"#333",1.5,"#666");x.fillStyle="#ff3a3a";x.fillRect(px+2*s,py-0.8*s,1.6*s,1.6*s);
+    x.strokeStyle="rgba(255,60,60,.25)";x.lineWidth=1;x.beginPath();x.moveTo(px+3*s,py);x.lineTo(px+L,py);x.stroke();           // beam to whatever is in front
+    crayonLine([[px+L,py-4*s],[px+L,py+4*s]],"rgba(255,60,60,.5)",1.5);                                                         // where it hits
+    x.fillStyle="rgba(255,255,255,.95)";x.beginPath();x.arc(px+L,py,1.6*s,0,7);x.fill();                                        // steady bright spot where it lands - no bouncing pulse (owner ~22:3x "stop bouncing light")
+    x.font=`${Math.round(4*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillStyle="#a03030";x.fillText("ToF",px,py-4*s)}
+   x.fillStyle="#6a5a46";x.font=`${Math.round(6*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText("iNeeda",X+16*s,Y-83*s);   // label
+   blob(X,Y+2*s,4*s,3.2*s,"#4a2a12",2,"#a0623a");                                                                          // Sassy's nose
+   crayonLine([[X-1.5*s,Y+3*s],[X-1*s,Y+3.6*s]],"#2a1a0a",1.4);crayonLine([[X+1.5*s,Y+3*s],[X+1*s,Y+3.6*s]],"#2a1a0a",1.4);    // nostrils
+   if(window.PATTY){const ps=s*0.4,   /* owner ~19:5x: Patty about a third smaller (was 0.6) */px=X-17*s,py=Y-30*s-Math.sin(b*6.283+2)*1.2*s;                                              // Patty the eagle on Sassy's shoulder
+     blob(px,py,18*ps,22*ps,PATTY[1],2.5,PATTY[2]);PATTY[4](px,py,ps,b);
+     x.fillStyle="#6a5a46";x.font=`${Math.round(6*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText("Patty",px-12*ps,py-37*ps-Math.round(6*s)*1.15)}}],   // same size as iNeeda's label, stacked right above Sandy's (owner ~23:0x)
+ ["__Patty","#5a4a2a","#d9c9a0",0.9,(X,Y,s,b)=>{crayonLine([[X+14*s,Y-14*s],[X+24*s,Y-10*s],[X+14*s,Y-6*s]],"#e8a020",2.5);eye(X+6*s,Y-14*s,3.5*s);
+   // Sandy, Patty's parakeet, perched on her shoulder (vivid gradient), bobbing on the beat
+   const px=X-12*s,py=Y-26*s-Math.sin(b*6.283)*1.5*s,g=x.createLinearGradient(px,py-8*s,px,py+8*s);
+   ["#ff3b6b","#ffb02e","#ffe94a","#3ddc6b","#2fb6ff","#9b5cff"].forEach((c2,i)=>g.addColorStop(i/5,c2));
+   x.fillStyle=g;x.globalAlpha=.6;x.beginPath();x.ellipse(px,py,6*s,8*s,0,0,7);x.fill();x.globalAlpha=1;
+   crayonLine([[px+5*s,py-4*s],[px+9*s,py-2*s],[px+5*s,py]],"#e8a020",1.8);eye(px+2*s,py-4*s,1.4*s);
+   crayonLine([[px-2*s,py+7*s],[px-8*s,py+16*s]],"#2fb6ff",2);crayonLine([[px,py+7*s],[px-4*s,py+17*s]],"#9b5cff",2);
+   x.fillStyle="#6a5a46";x.font=`${window.INEEDA_FS||Math.round(6*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText("Sandy",px,py-11*s)}],   // same size as iNeeda's label
+ ["Alec","#8a6a5a","#c8a890",1.15,(X,Y,s,b)=>{crayonLine([[X-8*s,Y-30*s],[X-12*s,Y-48*s]],"#8a6a5a",2.5);crayonLine([[X+8*s,Y-30*s],[X+12*s,Y-48*s]],"#8a6a5a",2.5);
+   eye(X-5*s,Y-20*s,3.5*s);eye(X+5*s,Y-20*s,3.5*s);blob(X,Y+8*s,8*s,7*s,"#6a5a8a",2,"#a898c8");                              // Baby Zeus in pouch
+   const sw=Math.sin(b*6.283)*0.9;arm(X-6*s,Y+6*s,9*s,-2.4+sw,"#6a5a8a");arm(X+6*s,Y+6*s,9*s,-0.7-sw,"#6a5a8a");             // ...swinging his arms
+   blob(X-8*s,Y+2*s,2.5*s,3*s,"#6a5a8a",1.5,"#f0c0d0");blob(X+8*s,Y+2*s,2.5*s,3*s,"#6a5a8a",1.5,"#f0c0d0");                 // Baby Zeus ears
+   eye(X-3*s,Y+6*s,1.8*s);eye(X+3*s,Y+6*s,1.8*s);                                                                          // eyes
+   crayonLine([[X,Y+8*s],[X-0.8*s,Y+9.5*s],[X+0.6*s,Y+9.8*s]],"#7a4a5a",1.5);                                              // nose
+   crayonLine([[X-3*s,Y+11*s],[X,Y+12.5*s],[X+3*s,Y+11*s]],"#c03050",1.8);                                               // smile
+   x.fillStyle="#6a5a46";x.font=`${Math.round(6*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText("Baby Zeus",X+22*s,Y+14*s)}],  // label
+ ["__Mouse","#7a7aa0","#c8c8e8",0.7,(X,Y,s,b)=>{blob(X-10*s,Y-18*s,6*s,6*s,"#7a7aa0",2,"#f0c0d0");blob(X+10*s,Y-18*s,6*s,6*s,"#7a7aa0",2,"#f0c0d0");
+   crayonLine([[X+14*s,Y+10*s],[X+30*s,Y+4*s+Math.sin(b*3.14)*6],[X+40*s,Y+12*s]],"#7a7aa0",2)}],
+ ["__Ronnie","#9a9aa8","#f4f4f8",1.1,(X,Y,s,b)=>{crayonLine([[X+8*s,Y-18*s],[X+38*s,Y-14*s]],"#d8a060",3);blob(X+24*s,Y-8*s,12*s,6*s,"#c08850",2,"#f0c090");
+   eye(X+4*s,Y-20*s,3.5*s);crayonLine([[X-4*s,Y-24*s],[X+12*s,Y-24*s]],"#222",2.5)}],
+ ["Roby","#b02020","#e04040",0.75,(X,Y,s,b)=>{crayonLine([[X-2*s,Y-22*s],[X+4*s,Y-34*s],[X+6*s,Y-22*s]],"#b02020",2.5);crayonLine([[X-6*s,Y-12*s],[X+6*s,Y-12*s]],"#222",3);
+   crayonLine([[X+10*s,Y-12*s],[X+16*s,Y-10*s]],"#e8a020",2.5);
+   for(let w=0;w<4;w++){const wx=X-15*s+w*10*s,wy=Y+30*s;blob(wx,wy,4*s,4*s,"#333",2,"#888");                                  // 4 wheels = 4 stepper slots
+     const sp=b*6.283+w;crayonLine([[wx,wy],[wx+Math.cos(sp)*3.5*s,wy+Math.sin(sp)*3.5*s]],"#222",1.5)}}],
+ ["__Sandy","#3a8a3a","#7fe07f",0.6,(X,Y,s,b)=>{                                                                                  // Patty's parakeet, vivid gradient
+   const g=x.createLinearGradient(X,Y-22*s,X,Y+22*s);["#ff3b6b","#ffb02e","#ffe94a","#3ddc6b","#2fb6ff","#9b5cff"].forEach((c2,i)=>g.addColorStop(i/5,c2));
+   x.fillStyle=g;x.globalAlpha=.55;x.beginPath();x.ellipse(X,Y,17*s,21*s,0,0,7);x.fill();x.globalAlpha=1;
+   crayonLine([[X+12*s,Y-12*s],[X+20*s,Y-8*s],[X+12*s,Y-5*s]],"#e8a020",2.5);eye(X+5*s,Y-12*s,3*s);
+   crayonLine([[X-4*s,Y+18*s],[X-14*s,Y+40*s]],"#2fb6ff",3);crayonLine([[X+2*s,Y+18*s],[X-6*s,Y+42*s]],"#9b5cff",3)}],             // long tail
+ ["Niky","#a080c0","#e8c8f0",0.85,(X,Y,s,b)=>{blob(X-9*s,Y-20*s,5*s,5*s,"#a080c0",2,"#f8c8d8");blob(X+9*s,Y-20*s,5*s,5*s,"#a080c0",2,"#f8c8d8");
+   crayonLine([[X-7*s,Y-10*s],[X+7*s,Y-10*s]],"#c08040",2.5);
+   // Niky's guitar (owner ~20:2x): whale-tail flap with the 5-pin XLR, T1L twisted pair out of it, and other boards tiled into a full scratch guard
+   const gx=X-2*s,gy=Y+6*s;blob(gx,gy,15*s,11*s,"#5a3010",2.5,"#9a5a2a");crayonLine([[gx+13*s,gy-3*s],[gx+44*s,gy-14*s]],"#5a3010",3.5);blob(gx+47*s,gy-15*s,4*s,3*s,"#5a3010",2,"#9a5a2a");
+   [["#1a6a2a",-9,-6],["#2a4a9a",-2,-7],["#8a2a6a",5,-5],["#1a6a2a",-7,1],["#c08a1a",0,0],["#2a4a9a",6,2]].forEach(([cc,dx,dy])=>{x.fillStyle=cc;x.globalAlpha=.85;x.fillRect(gx+dx*s,gy+dy*s,6*s,5.5*s);x.globalAlpha=1;
+     x.fillStyle="#e8d070";x.fillRect(gx+(dx+1)*s,gy+(dy+1)*s,1.2*s,1.2*s)});                                                 // tiled boards = full scratch guard
+   const fl=0.5+0.5*Math.sin(b*6.283*0.25),fx=gx-14*s,fy=gy+3*s;crayonLine([[fx,fy],[fx-8*s*Math.cos(fl),fy+8*s*Math.sin(fl)]],"#7a4a1a",4);   // whale tail flap
+   {const m=x.getTransform().transformPoint(new DOMPoint(fx,fy));window.WHALE=[m.x,m.y]}                                    // screen spot of the whale tail (Sam's trunk plugs in here)
+   blob(fx,fy-1*s,2.4*s,2.4*s,"#222",1.5,"#444");x.fillStyle="#a03030";x.font=`${Math.round(4*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText("XLR5",fx-2*s,fy-5*s);
+   // T1L pair to the roadies (owner ~20:4x): leaves the XLR, sweeps down in a wide arc (never tighter than the min bend radius),
+   // lies along the floor and runs off stage to the roadies; the arc relaxes or tightens as Niky moves, but never kinks
+   const fyl=x.getTransform().inverse().transformPoint(new DOMPoint(0,c.height*.62+34*(window.__base||1)-3)).y, sway=Math.sin(b*6.283*0.5)*3*s, R=Math.max(9*s,(fyl-fy)*0.45);
+   // the far end runs off to backstage at a FIXED screen point - it must not ride Niky's dance up and down at the edge (owner ~22:4x)
+   // "earth" = the front edge of the floor the crew stands on (wires stay ABOVE it); the backstage tap at the right edge never moves
+   const earth=c.height*.62+34*(window.__base||1)-3,inv=x.getTransform().inverse(),endL=inv.transformPoint(new DOMPoint(c.width+20,earth)),floorL=inv.transformPoint(new DOMPoint(x.getTransform().transformPoint(new DOMPoint(fx,fy)).x+R,earth));
+   const P=[[fx,fy],[fx-3*s+sway,fy+R*0.6],[fx-R*0.2+sway,floorL.y],[floorL.x,floorL.y],[endL.x,endL.y]];
+   const pts=[];for(let i=0;i<=24;i++){const u=i/24;if(u<0.6){const v=u/0.6,a=P[0],b1=P[1],c2=P[2],d=P[3];   // cubic bezier = the bend
+       pts.push([(1-v)**3*a[0]+3*(1-v)**2*v*b1[0]+3*(1-v)*v*v*c2[0]+v**3*d[0],(1-v)**3*a[1]+3*(1-v)**2*v*b1[1]+3*(1-v)*v*v*c2[1]+v**3*d[1]])}
+     else{const v=(u-0.6)/0.4;pts.push([P[3][0]+(P[4][0]-P[3][0])*v,P[3][1]+(P[4][1]-P[3][1])*v])}}
+   [[-0.9,"#3050c0"],[0.9,"#c03030"]].forEach(([o,cc])=>crayonLine(pts.map((p,i)=>[p[0],p[1]+Math.sin(i*1.7)*o*s]),cc,1.4));
+   // black 1/4" mono cable from the guitar's jack to the roadies, same min-bend-radius sweep, a little lower (owner ~20:5x)
+   const pts2=pts.map((p,i)=>[p[0]+(i<15?(gx+12*s-fx)*(1-i/15):0),p[1]+(i<15?(gy+7*s-fy)*(1-i/15):0)+2.5*s]);crayonLine(pts2,"#111",2.6);
+   // animated flow: DATA packets on the T1L pair (red/blue squares), ANALOG signal on the black cable (dots that swell with the live speaker level)
+   const tnow=performance.now()/1000,at=(arr,u)=>arr[Math.min(arr.length-1,Math.floor(u*(arr.length-1)))];
+   for(let k=0;k<5;k++){const p=at(pts,((tnow*0.25)+k/5)%1);x.fillStyle=k%2?"#c03030":"#3050c0";x.fillRect(p[0]-1.4*s,p[1]-1.4*s,2.8*s,2.8*s)}
+   // ANALOG audio flow (owner ~23:5x): bright amber pulses ride the black 1/4in mono from the jack to the roadies' amp, swelling with the live sound
+   for(let k=0;k<14;k++){const p=at(pts2,((tnow*0.3)+k/14)%1),r=(1.6+(live?lvl:0.15)*5*(0.6+0.4*Math.sin(tnow*10+k)))*s;
+     x.fillStyle="rgba(255,154,32,.35)";x.beginPath();x.arc(p[0],p[1],r*1.9,0,7);x.fill();x.fillStyle="#ff9a20";x.beginPath();x.arc(p[0],p[1],r,0,7);x.fill()}
+   {const j=pts2[0];x.fillStyle="#222";x.beginPath();x.arc(j[0],j[1],1.8*s,0,7);x.fill();x.fillStyle="#a06010";x.font=`bold ${Math.round(4*s)}px "Comic Sans MS"`;x.textAlign="center";x.fillText("1/4\" jack",j[0],j[1]-3*s)}
+   {const m=x.getTransform();window.ANALOG_END=(()=>{const e2=pts2[pts2.length-1],q=m.transformPoint(new DOMPoint(e2[0],e2[1]));return [q.x,q.y]})();
+    window.CABLE2=pts2.map(p=>{const q=m.transformPoint(new DOMPoint(p[0],p[1]));return [q.x,q.y]});const pk=m.transformPoint(new DOMPoint(gx-1*s,gy));window.PICKUP=[pk.x,pk.y]}   // screen copies for the audio walkthrough
+   x.fillStyle="#333";x.fillText("regular audio: pickups -> 1/4\" mono -> amp",fx+R+30*s,fyl+7*s);
+   x.fillStyle="#222";x.fillRect(gx-7*s,gy-3*s,3*s,6*s);x.fillRect(gx+2*s,gy-3*s,3*s,6*s);                                   // the guitar's regular pickups (where the analog path starts)
+   for(let k=0;k<3;k++){const ph=(performance.now()/700+k/3)%1;x.globalAlpha=1-ph;x.strokeStyle="#e8a020";x.lineWidth=1.2;x.beginPath();x.arc(gx-1*s,gy,(2+ph*6)*s,0,7);x.stroke()}x.globalAlpha=1;   // string vibration picked up
+   x.fillStyle="#a03030";x.fillText("T1L -> roadies",fx+R+14*s,fyl-3*s);x.fillStyle="#6a6a6a";x.fillText("R min",fx-R*0.3,fyl-R*0.5)}],
+ ["Barb","#b07830","#f0c870",1.2,(X,Y,s,b)=>{
+   // Mouse rides on Barb's shoulder (like Sandy on Patty)
+   const mx=X+13*s,my=Y-26*s-Math.sin(b*6.283+1)*1.5*s;
+   blob(mx,my,5.5*s,6.5*s,"#7a7aa0",2,"#c8c8e8");blob(mx-4*s,my-6*s,2.8*s,2.8*s,"#7a7aa0",1.5,"#f0c0d0");blob(mx+4*s,my-6*s,2.8*s,2.8*s,"#7a7aa0",1.5,"#f0c0d0");
+   // Mouse's shades with electronics: dark lenses, a U5 pod on the temple, ToF beam
+   blob(mx-2*s,my-1.5*s,2*s,1.6*s,"#111",1.5,"#223");blob(mx+2*s,my-1.5*s,2*s,1.6*s,"#111",1.5,"#223");
+   crayonLine([[mx-0.3*s,my-1.5*s],[mx+0.3*s,my-1.5*s]],"#111",1.2);
+   blob(mx+5.2*s,my-2*s,1.8*s,1.1*s,"#1a4a2a",1.2,"#3aa060");x.fillStyle="#d8ffd8";x.font=`${Math.round(2.4*s)}px Consolas`;x.fillText("U5",mx+5.2*s,my-1.4*s);
+   x.strokeStyle="rgba(255,80,80,.55)";x.lineWidth=1;x.beginPath();x.moveTo(mx+7*s,my-2*s);x.lineTo(mx+22*s,my+4*s);x.stroke();
+   crayonLine([[mx+4*s,my+5*s],[mx+12*s,my+2*s+Math.sin(b*6.283)*3*s],[mx+16*s,my+7*s]],"#7a7aa0",1.6);
+   x.fillStyle="#6a5a46";x.font=`${Math.round(6*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText("Mouse",mx,my-11*s);
+   // the dragon (Uncle) underneath, flapping blue wings, BJ riding
+   const fl=Math.sin(performance.now()/1000*0.8)*0.5;   /* slow, calm hover beats like the eagle - not on the music (owner ~22:5x "obnoxious fast") */blob(X,Y+38*s,26*s,10*s,"#2a6a3a",3,"#5fbf6f");
+   crayonLine([[X+24*s,Y+34*s],[X+38*s,Y+26*s],[X+44*s,Y+30*s]],"#2a6a3a",3);eye(X+40*s,Y+27*s,2.5*s);                      // dragon head
+   crayonLine([[X-24*s,Y+38*s],[X-40*s,Y+44*s],[X-46*s,Y+38*s]],"#2a6a3a",3);                                              // tail
+   x.fillStyle="#3a3a8a";x.beginPath();x.moveTo(X+34*s,Y+24*s);x.lineTo(X+46*s,Y+24*s);x.lineTo(X+41*s+Math.sin(b*6.283)*1.5*s,Y+8*s);x.closePath();x.fill();   // Uncle's wizard hat (owner: "Wizard gets 2 be Uncle")
+   x.fillStyle="#ffd84a";[[39,20],[42,16],[43,21]].forEach(p=>{x.beginPath();x.arc(X+p[0]*s,Y+p[1]*s,0.9*s,0,7);x.fill()});
+   x.fillStyle="#6a5a46";x.font=`${Math.round(6*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText("Dragon",X+44*s,Y+5*s);    // dragon label (above the hat) - "Dragon" for now (owner ~21:5x)
+   const wc=`hsl(${170+40*Math.sin(t0?performance.now()/1500:0)},75%,55%)`;   // wings shimmer blue <-> green
+   // wings rotated 90 deg: they rise from the dragon's back BEHIND Barb and flap up/down there, clear of her legs (owner ~22:4x)  // + the PAIR rotated 90 deg about the midpoint of its two roots (owner ~00:0x)
+   x.save();x.translate(X-14*s,Y+30*s);x.rotate(-Math.PI/2);x.translate(-(X-14*s),-(Y+30*s));[-1,1].forEach(sd=>{const rx=X-14*s+sd*3*s,ry=Y+30*s,tA=[rx-6*s+sd*5*s,ry-30*s+fl*12*s],tB=[rx-20*s+sd*3*s,ry-14*s+fl*7*s];
+     x.fillStyle=wc;x.globalAlpha=.4;x.beginPath();x.moveTo(rx,ry);x.lineTo(tA[0],tA[1]);x.lineTo(tB[0],tB[1]);x.closePath();x.fill();x.globalAlpha=1;
+     crayonLine([[rx,ry],tA,tB,[rx,ry]],"#1f6fd0",2.5)});x.restore();crayonLine([[X-14*s,Y-4*s],[X+14*s,Y+6*s]],"#8a5020",2);
+   eye(X+6*s,Y-12*s,3.5*s);eye(X+13*s,Y-11*s,3*s);                                                                          // Barb faces right, same way as Uncle
+   crayonLine([[X+16*s,Y-8*s],[X+21*s,Y-6*s],[X+16*s,Y-4*s]],"#8a5020",2.2);                                                 // nose pointing forward
+   blob(X,Y+22*s,7*s,6*s,"#30a050",2,"#80f0a0")}],                                                                              // glowing bucket
+ ["Pingey","#d8d8e0","#ffffff",1.0,(X,Y,s,b)=>{   // the skinny lobster-roll chef-bot (aka Pinjie / Pingee)
+   blob(X,Y-34*s,7*s,4*s,"#c8c8d0",2,"#ffffff");blob(X-3*s,Y-40*s,4*s,4*s,"#c8c8d0",2,"#ffffff");blob(X+3*s,Y-40*s,4*s,4*s,"#c8c8d0",2,"#ffffff");   // chef's hat
+   eye(X-3*s,Y-14*s,2.5*s);eye(X+3*s,Y-14*s,2.5*s);crayonLine([[X-3*s,Y-6*s],[X,Y-4*s],[X+3*s,Y-6*s]],"#555",1.6);
+   x.fillStyle="#c03020";x.font=`bold ${Math.round(3.4*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText("Kiss the",X,Y+4*s);x.fillText("Lobster",X,Y+8*s);
+   }],   // the rail + tray are drawn by pingeyRail() on a FIXED mount, not on his dancing body (owner ~20:4x: too fast, bouncing, "ruining hardware")
+ ["Clawdia","#b02818","#f06048",0.9,(X,Y,s,b)=>{   // Clawdia, a lobster with claws (owner ~22:0x)
+   eye(X-4*s,Y-16*s,2.6*s);eye(X+4*s,Y-16*s,2.6*s);crayonLine([[X-3*s,Y-20*s],[X-10*s,Y-40*s]],"#b02818",1.5);crayonLine([[X+3*s,Y-20*s],[X+10*s,Y-40*s]],"#b02818",1.5);   // antennae
+   const snap=Math.abs(Math.sin(b*6.283))*0.5;[-1,1].forEach(sd=>{const cx=X+sd*26*s,cy=Y-14*s;                                 // two big claws that snap on the beat
+     blob(cx,cy,7*s,5*s,"#b02818",2.5,"#f06048");crayonLine([[cx+sd*5*s,cy-2*s],[cx+sd*12*s,cy-6*s-snap*4*s]],"#b02818",3);crayonLine([[cx+sd*5*s,cy+2*s],[cx+sd*12*s,cy+3*s+snap*4*s]],"#b02818",3)});
+   for(let k=0;k<3;k++)crayonLine([[X-12*s,Y+(4+k*5)*s],[X+12*s,Y+(4+k*5)*s]],"#b02818",1.2)}],                           // tail segments
+ ["Sam","#4a6a3a","#a8c890",0.95,(X,Y,s,b)=>{   // Sam, THE harness man for Roby's wheel frame (T1S, CAN, ...) (owner ~22:0x)
+   eye(X-4*s,Y-14*s,2.4*s);eye(X+4*s,Y-14*s,2.4*s);crayonLine([[X-4*s,Y-6*s],[X+4*s,Y-6*s]],"#555",1.4);
+   x.fillStyle="#e8c020";x.fillRect(X-10*s,Y-26*s,20*s,4*s);                                                                 // hard-hat brim
+   blob(X,Y-29*s,8*s,4*s,"#c8a010",2,"#f0d040");
+   for(let k=0;k<4;k++){x.fillStyle=["#3050c0","#c03030","#e8c020","#30a050"][k];x.fillRect(X-14*s+k*1.5*s,Y-4*s+k*3*s,10*s,1.4*s)}   // spare harness coils on his belt
+   x.fillStyle="#2a3a20";x.font=`${Math.round(4*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText("HARNESS",X,Y+12*s)}],
+ ["the good Dr.","#7a8aa0","#f4f6fa",1.0,(X,Y,s,b)=>{   // a generic cartoon doctor (owner ~22:0x "add the good dr") - original design, no real-person likeness
+   eye(X-4*s,Y-14*s,2.4*s);eye(X+4*s,Y-14*s,2.4*s);crayonLine([[X-4*s,Y-6*s],[X,Y-4*s],[X+4*s,Y-6*s]],"#555",1.5);           // kind smile
+   blob(X,Y-24*s,4*s,4*s,"#999",1.5,"#dde6f0");                                                                               // head mirror
+   crayonLine([[X-7*s,Y-8*s],[X-9*s,Y+4*s],[X,Y+10*s],[X+9*s,Y+4*s],[X+7*s,Y-8*s]],"#555",1.6);blob(X,Y+11*s,2.4*s,2.4*s,"#555",1.5,"#999");   // stethoscope
+   crayonLine([[X-2*s,Y-6*s],[X-2*s,Y+18*s]],"#c8d0dc",1.2);crayonLine([[X+2*s,Y-6*s],[X+2*s,Y+18*s]],"#c8d0dc",1.2);               // white-coat lapels
+   x.fillStyle="#c03030";x.fillRect(X+8*s,Y-2*s,5*s,1.4*s);x.fillRect(X+9.8*s,Y-3.8*s,1.4*s,5*s)}],                            // little red cross on the pocket
+ // PROPS (name starts with "~": no body, arms or legs). Owner ~22:1x: a laser table with AUTOFOCUS for a patient lying down, and one for a
+ // patient in the special chiro chair. The laser head scans and its height follows the body surface (ToF ranging keeps the focus distance).
+ ["~laser table","#666","#ccc",1.0,(X,Y,s,b)=>{const g=Y+30*s,top=g-14*s,tt=performance.now()/1000;
+   x.fillStyle="#8a9aa8";x.fillRect(X-26*s,top,52*s,3*s);crayonLine([[X-22*s,top+3*s],[X-22*s,g]],"#666",2);crayonLine([[X+22*s,top+3*s],[X+22*s,g]],"#666",2);   // table
+   const surf=u=>top-4*s-3.2*s*Math.exp(-(((u-0.3)/0.12)**2))-2*s*Math.exp(-(((u-0.62)/0.2)**2));                                // the patient's back profile
+   x.fillStyle="#f0d0b0";x.beginPath();x.moveTo(X-22*s,top);for(let i=0;i<=20;i++){const u=i/20;x.lineTo(X-22*s+u*44*s,surf(u))}x.lineTo(X+22*s,top);x.fill();
+   blob(X-24*s,top-4*s,4*s,3.5*s,"#a07a5a",1.5,"#f0d0b0");                                                                  // head on the pillow end
+   crayonLine([[X-28*s,top-28*s],[X+28*s,top-28*s]],"#555",2.5);                                                            // gantry rail
+   const U0=0.12,U1=0.58,u=U0+(U1-U0)*(0.5+0.5*Math.sin(tt*0.5)),hx=X-22*s+u*44*s,focus=8*s,hz=surf(u)-focus;               // scans the back only: turns around just past the sciatic nerve, never the legs (owner ~23:0x)
+   {const gw=48*s,gh=14*s,g0x=X-24*s,g0y=Y-72*s,zs=[];for(let k=0;k<=24;k++){const v=U0+(U1-U0)*k/24;zs.push(surf(v)-focus)}const lo=Math.min(...zs),hi=Math.max(...zs)+0.01;   // trend: laser Z height vs position down the body
+    x.fillStyle="rgba(255,255,255,.75)";x.fillRect(g0x,g0y,gw,gh);x.strokeStyle="#9a8a76";x.lineWidth=1;x.strokeRect(g0x,g0y,gw,gh);
+    x.strokeStyle="#b48ce0";x.lineWidth=1.6;x.beginPath();zs.forEach((z,k)=>{const px=g0x+gw*k/24,py=g0y+gh*(z-lo)/(hi-lo);k?x.lineTo(px,py):x.moveTo(px,py)});x.stroke();
+    const mx=g0x+gw*(u-U0)/(U1-U0),my=g0y+gh*(hz-lo)/(hi-lo);x.fillStyle="#c02020";x.beginPath();x.arc(mx,my,1.6*s,0,7);x.fill();
+    x.fillStyle="#6a5a46";x.font=`${Math.round(3.4*s)}px "Comic Sans MS"`;x.textAlign="left";x.fillText("laser Z vs position down the back",g0x,g0y-1.5*s);x.textAlign="right";x.fillText("stops past the sciatic nerve",g0x+gw,g0y+gh+4*s)}
+   crayonLine([[hx,top-28*s],[hx,hz-4*s]],"#777",1.8);x.fillStyle="#333";x.fillRect(hx-3*s,hz-5*s,6*s,5*s);
+   x.strokeStyle="rgba(255,40,40,.85)";x.lineWidth=1.5;x.beginPath();x.moveTo(hx,hz);x.lineTo(hx,surf(u));x.stroke();         // beam just touches: in focus
+   {const tx=hx+5*s,tu=Math.min(1,u+5/44),ty=surf(tu);x.fillStyle="#2a5ab0";x.fillRect(tx-1.6*s,hz-4.5*s,3.2*s,3.2*s);      // ToF sensor riding beside the laser head (owner ~08:0x: show where the Z feedback comes from)
+    x.strokeStyle="rgba(40,110,255,.9)";x.lineWidth=1.3;x.beginPath();x.moveTo(tx,hz-1.3*s);x.lineTo(tx,ty);x.stroke();x.fillStyle="#fff";x.beginPath();x.arc(tx,ty,0.9*s,0,7);x.fill();
+    x.setLineDash([2,2]);x.strokeStyle="rgba(40,110,255,.7)";x.lineWidth=1;x.beginPath();x.moveTo(tx+1.6*s,hz-3*s);x.quadraticCurveTo(tx+8*s,hz-14*s,hx+1*s,hz-6*s);x.stroke();x.setLineDash([]);   // feedback loop: ToF distance -> head Z
+    x.fillStyle="#2a5ab0";x.font=`${Math.round(3*s)}px "Comic Sans MS"`;x.textAlign="left";x.fillText("ToF -> Z",tx+3*s,hz+3*s)}
+   x.fillStyle="#2a8a3a";x.font=`${Math.round(4*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText("AF ✓",hx+7*s,hz-2*s)}],
+ ["~fridge","#666","#ccc",1.0,(X,Y,s,b)=>{const g=Y+30*s,tt=performance.now()/1000;   // the fridge, centre back row (owner ~23:0x) - where the ice water and the lobster rolls come from
+   x.fillStyle="#eef2f6";x.fillRect(X-12*s,g-46*s,24*s,46*s);x.strokeStyle="#8a96a4";x.lineWidth=2;x.strokeRect(X-12*s,g-46*s,24*s,46*s);
+   x.beginPath();x.moveTo(X-12*s,g-30*s);x.lineTo(X+12*s,g-30*s);x.stroke();                                                  // freezer line
+   x.fillStyle="#8a96a4";x.fillRect(X+8*s,g-42*s,2*s,8*s);x.fillRect(X+8*s,g-26*s,2*s,12*s);                                   // handles
+   x.fillStyle=Math.sin(tt*1.2)>0?"#5fd07a":"#2a7a3a";x.beginPath();x.arc(X-8*s,g-43*s,1*s,0,7);x.fill();                     // status light
+   x.font=`${Math.round(3.4*s)}px "Comic Sans MS"`;x.fillStyle="#5a6a7a";x.textAlign="center";x.fillText("ice + lobster",X-1*s,g-6*s);
+   // Baby Zeus's latest art on the fridge door, for all to see (owner ~23:0x): crayon sun, the crew as stick figures, a heart - held on by a magnet
+   {const px=X-9*s,py=g-28*s,pw=15*s,ph=12*s,sw=Math.sin(tt*0.8)*0.03;x.save();x.translate(px+pw/2,py);x.rotate(sw-0.04);
+    x.fillStyle="#fffdf6";x.fillRect(-pw/2,0,pw,ph);x.strokeStyle="#cbbfa8";x.lineWidth=0.8;x.strokeRect(-pw/2,0,pw,ph);
+    x.fillStyle="#ffd84a";x.beginPath();x.arc(-pw/2+3*s,3*s,1.6*s,0,7);x.fill();                                             // sun
+    [["#8b5e34",-2],["#d23a2a",1],["#b49cff",4]].forEach(([cc,dx])=>{x.strokeStyle=cc;x.lineWidth=1;x.beginPath();x.arc(dx*s,ph-6.5*s,1*s,0,7);x.moveTo(dx*s,ph-5.5*s);x.lineTo(dx*s,ph-3*s);
+      x.moveTo(dx*s-1.2*s,ph-4.6*s);x.lineTo(dx*s+1.2*s,ph-4.6*s);x.moveTo(dx*s,ph-3*s);x.lineTo(dx*s-1*s,ph-1.4*s);x.moveTo(dx*s,ph-3*s);x.lineTo(dx*s+1*s,ph-1.4*s);x.stroke()});   // the crew
+    x.fillStyle="#e85a7a";x.beginPath();x.arc(pw/2-3*s,3.5*s,1*s,0,7);x.arc(pw/2-1.6*s,3.5*s,1*s,0,7);x.fill();x.beginPath();x.moveTo(pw/2-4*s,3.9*s);x.lineTo(pw/2-2.3*s,6*s);x.lineTo(pw/2-0.6*s,3.9*s);x.fill();   // heart
+    x.fillStyle="#c03030";x.beginPath();x.arc(0,0.4*s,1.2*s,0,7);x.fill();x.restore();                                       // magnet
+    x.font=`${Math.round(2.8*s)}px "Comic Sans MS"`;x.fillStyle="#6a5a46";x.textAlign="center";x.fillText("by Baby Zeus",px+pw/2,py+ph+3*s)}}],
+ ["~chiro chair","#666","#ccc",1.0,(X,Y,s,b)=>{const g=Y+30*s,tt=performance.now()/1000;
+   // face-down chiro chair (owner ~22:3x): patient leans forward, FACE IN THE CRADLE LOOKING AT THE FLOOR, the laser hits the BACK; feet centered under the patient
+   x.strokeStyle="#555";x.lineWidth=2.5;x.beginPath();x.moveTo(X-10*s,g);x.lineTo(X+10*s,g);x.moveTo(X,g);x.lineTo(X,g-12*s);x.stroke();   // centered foot plate + post
+   const hip=[X+5*s,g-17*s],sh=[X-10*s,g-29*s];
+   x.strokeStyle="#7a5a8a";x.lineWidth=4;x.beginPath();x.moveTo(X-1*s,g-15*s);x.lineTo(X-11*s,g-24*s);x.stroke();                      // angled chest pad
+   x.beginPath();x.moveTo(X+2*s,g-11*s);x.lineTo(X+10*s,g-11*s);x.stroke();                                                    // knee pad
+   x.strokeStyle="#7a5a8a";x.lineWidth=2.5;x.beginPath();x.ellipse(X-16*s,g-27*s,4.5*s,2*s,0.5,0,7);x.stroke();               // face cradle (open ring)
+   x.strokeStyle="#a07a5a";x.lineWidth=7*s;x.lineCap="round";x.beginPath();x.moveTo(hip[0],hip[1]);x.lineTo(sh[0],sh[1]);x.stroke(); // torso, leaning forward
+   x.strokeStyle="#f0d0b0";x.lineWidth=5.6*s;x.stroke();
+   blob(X-15*s,g-30*s,4.2*s,4.2*s,"#a07a5a",1.5,"#f0d0b0");x.fillStyle="#222";x.beginPath();x.arc(X-16.5*s,g-27.2*s,0.9*s,0,7);x.fill();   // head in the cradle, eye looking DOWN
+   x.strokeStyle="#a07a5a";x.lineWidth=2.4*s;x.beginPath();x.moveTo(hip[0],hip[1]);x.lineTo(X+6*s,g-11*s);x.lineTo(X+1*s,g-1*s);x.stroke();   // thigh to the knee pad, shin to feet centered under
+   const dx=sh[0]-hip[0],dy=sh[1]-hip[1],dl=Math.hypot(dx,dy),nx=dy/dl,ny=-dx/dl;                                               // unit normal pointing up-and-out of the back
+   const u=0.5+0.35*Math.sin(tt*0.5),bx=hip[0]+dx*u+(nx)*3.2*s*Math.sign(nx||1),by=hip[1]+dy*u-Math.abs(ny)*3.2*s;              // the spot on the back
+   const focus=9*s,hx=bx+(nx>0?nx:-nx)*focus*0.7,hy=by-Math.abs(ny)*focus;x.fillStyle="#333";x.fillRect(hx-3*s,hy-4*s,6*s,4*s);
+   x.strokeStyle="#666";x.lineWidth=2;x.beginPath();x.moveTo(X+24*s,g);x.lineTo(X+24*s,g-46*s);x.lineTo(hx,g-46*s);x.lineTo(hx,hy-4*s);x.stroke();   // gantry post + arm
+   x.strokeStyle="rgba(255,40,40,.85)";x.lineWidth=1.5;x.beginPath();x.moveTo(hx,hy);x.lineTo(bx,by);x.stroke();                // beam hits the back, in focus
+   {const ex=dx/dl,ey=dy/dl,o=4.5*s,tx=hx+ex*o,ty=hy+ey*o,sx=bx+ex*o,sy=by+ey*o;x.fillStyle="#2a5ab0";x.fillRect(tx-1.6*s,ty-3.2*s,3.2*s,3.2*s);   // ToF sensor beside the head, aimed at the back like the laser (owner ~08:0x)
+    x.strokeStyle="rgba(40,110,255,.9)";x.lineWidth=1.3;x.beginPath();x.moveTo(tx,ty);x.lineTo(sx,sy);x.stroke();x.fillStyle="#fff";x.beginPath();x.arc(sx,sy,0.9*s,0,7);x.fill();
+    x.setLineDash([2,2]);x.strokeStyle="rgba(40,110,255,.7)";x.lineWidth=1;x.beginPath();x.moveTo(tx,ty-3.2*s);x.quadraticCurveTo(tx+4*s,hy-12*s,hx+3*s,hy-4*s);x.stroke();x.setLineDash([]);   // feedback: ToF distance -> head position
+    x.fillStyle="#2a5ab0";x.font=`${Math.round(3*s)}px "Comic Sans MS"`;x.textAlign="right";x.fillText("ToF -> focus",tx-3*s,ty+1*s)}
+   // trend panel: X and Y of the beam's START (laser head) and END (spot on the back) on one graph - X on the left axis, Y on the right axis
+   {const L=220;[["hx",hx-X],["hy",hy-g],["bx",bx-X],["by",by-g]].forEach(([k,v])=>{CH[k].push(v);if(CH[k].length>L)CH[k].shift()});
+    const gw=48*s,gh=16*s,g0x=X-20*s,g0y=g-90*s;x.fillStyle="rgba(255,255,255,.75)";x.fillRect(g0x,g0y,gw,gh);x.strokeStyle="#9a8a76";x.lineWidth=1;x.strokeRect(g0x,g0y,gw,gh);
+    const plot=(arr,col,lo,hi,dash)=>{x.setLineDash(dash?[3,2]:[]);x.strokeStyle=col;x.lineWidth=1.4;x.beginPath();arr.forEach((v,k)=>{const px=g0x+gw*k/(L-1),py=g0y+gh-gh*(v-lo)/((hi-lo)||1);k?x.lineTo(px,py):x.moveTo(px,py)});x.stroke();x.setLineDash([])};
+    const xs=CH.hx.concat(CH.bx),ys=CH.hy.concat(CH.by),xl=Math.min(...xs),xh=Math.max(...xs),yl=Math.min(...ys),yh=Math.max(...ys);
+    plot(CH.hx,"#7ab0e8",xl,xh,false);plot(CH.bx,"#7ab0e8",xl,xh,true);plot(CH.hy,"#e8a070",yl,yh,false);plot(CH.by,"#e8a070",yl,yh,true);
+    x.font=`${Math.round(3.2*s)}px "Comic Sans MS"`;x.textAlign="left";x.fillStyle="#4a7ab0";x.fillText("x (left axis)",g0x,g0y-1.5*s);x.textAlign="right";x.fillStyle="#b06a3a";x.fillText("y (right axis)",g0x+gw,g0y-1.5*s);
+    x.textAlign="center";x.fillStyle="#6a5a46";x.fillText("solid = laser start, dashed = laser end",g0x+gw/2,g0y+gh+4*s)}
+   x.fillStyle="#2a8a3a";x.font=`${Math.round(4*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText("AF ✓",hx+8*s,hy-3*s)}],
+];
+// Sam's harness to Roby's wheel frame: drawn after the cast so it follows Roby as she rolls; a drooping bundle with a min bend radius,
+// breaking out into a T1S pair (blue/white) and a CAN pair (yellow/green) at the frame
+// Sam's two extra trunks from his RIGHT side: one to the pedal board (MP257-EV1 in its clear box at Niky's feet), one to the whale tail (owner ~23:1x)
+function samTrunks(){const S=POS["Sam"],N=POS["Niky"];if(!S||!N)return;const s=S.s,base=window.__base||1,earth=c.height*.62+34*base-3;
+ const pbx=N.X+30*base,pby=earth-4*base;x.fillStyle="rgba(200,230,255,.45)";x.fillRect(pbx-16*base,pby-7*base,32*base,9*base);x.strokeStyle="#7aa0c0";x.lineWidth=1.2;x.strokeRect(pbx-16*base,pby-7*base,32*base,9*base);
+ x.fillStyle="#1a6a2a";x.fillRect(pbx-10*base,pby-5.5*base,12*base,5*base);[[-12,"#c03030"],[6,"#e8c020"],[11,"#3050c0"]].forEach(([dx,cc])=>{x.fillStyle=cc;x.beginPath();x.arc(pbx+dx*base,pby-2*base,1.6*base,0,7);x.fill()});
+ x.fillStyle="#2a4a6a";x.font=`${Math.round(5*base)}px "Comic Sans MS"`;x.textAlign="center";x.fillText("pedal board (MP257)",pbx,pby+8*base);
+ let from;const trunk=(to,col,lab)=>{const sag=Math.min(26*base,Math.abs(to[0]-from[0])*0.22+6*base),pts=[];
+   for(let i=0;i<=24;i++){const u=i/24;pts.push([from[0]+(to[0]-from[0])*u,from[1]+(to[1]-from[1])*u+Math.sin(Math.PI*u)*sag])}crayonLine(pts,"#222",3.6);crayonLine(pts,col,1.2);
+   for(let k=5;k<24;k+=6){const p=pts[k];x.fillStyle="#666";x.fillRect(p[0]-1.2,p[1]-2.5,2.4,5)}x.fillStyle="#2a2a2a";x.font=`bold ${Math.round(5*base)}px "Comic Sans MS"`;x.fillText(lab,pts[12][0],pts[12][1]+8*base)};
+ from=[S.X+12*s,S.Y+27.6*s];trunk([pbx+16*base,pby-2*base],"#3050c0","trunk -> pedal board");                                   // right tine of the fork
+ from=[S.X-12*s,S.Y+27.6*s];if(window.WHALE)trunk(window.WHALE,"#c03030","trunk -> XLR5 whale tail")}                               // left tine
+// wiring colour key (owner ~23:2x "wiring bundle color key")
+function wireKey(){const base=window.__base||1,rows=[["#222","harness loom (black)",3.5],["#3050c0","T1S pair (blue / white)",2],["#e8c020","CAN pair (yellow / green)",2],
+  ["#c03030","T1L pair (red / blue)",2],["#111","1/4in analog (black)",2.6],["#3050c0","trunk -> pedal board",2],["#c03030","trunk -> whale tail",2]];
+ const fs=Math.round(5.5*base),lh=fs*1.35,w=fs*14,h=lh*rows.length+fs*1.6,x0=c.width-w-6,y0=c.height*0.12;
+ x.fillStyle="rgba(255,252,240,.88)";x.fillRect(x0,y0,w,h);x.strokeStyle="#9a8a76";x.lineWidth=1;x.strokeRect(x0,y0,w,h);
+ x.font=`bold ${fs}px "Comic Sans MS"`;x.fillStyle="#3a2a16";x.textAlign="left";x.fillText("wiring key",x0+fs*0.6,y0+fs*1.2);
+ rows.forEach(([cc,lab,lw],k)=>{const yy=y0+fs*1.6+lh*(k+0.7);x.strokeStyle=cc;x.lineWidth=lw;x.beginPath();x.moveTo(x0+fs*0.6,yy-fs*0.3);x.lineTo(x0+fs*2.6,yy-fs*0.3);x.stroke();
+   if(k===1||k===2||k===3){x.strokeStyle=k===1?"#f0f0f0":k===2?"#30a050":"#3050c0";x.lineWidth=1;x.beginPath();x.moveTo(x0+fs*0.6,yy-fs*0.3+1.5);x.lineTo(x0+fs*2.6,yy-fs*0.3+1.5);x.stroke()}
+   x.font=`${fs}px "Comic Sans MS"`;x.fillStyle="#3a2a16";x.fillText(lab,x0+fs*3,yy)})}
+// the roadies' amp at the backstage end of the 1/4in cable: the analog signal arrives, gets louder, comes out as sound
+function roadieAmp(){const base=window.__base||1,earth=c.height*.62+34*base-3,ax=c.width-26*base,ay=earth-20*base,tn=performance.now()/1000;
+ x.fillStyle="#222";x.fillRect(ax-18*base,ay-16*base,36*base,30*base);x.strokeStyle="#555";x.lineWidth=2;x.strokeRect(ax-18*base,ay-16*base,36*base,30*base);
+ x.fillStyle="#3a3a3a";x.beginPath();x.arc(ax,ay+3*base,10*base,0,7);x.fill();x.fillStyle="#c8a020";x.font=`bold ${Math.round(5*base)}px "Comic Sans MS"`;x.textAlign="center";x.fillText("AMP",ax,ay-9*base);
+ const loud=live?Math.min(1,lvl*3):0.25;for(let k=0;k<3;k++){const r=8*base+((tn*24+k*10)%30)*base*0.8;x.globalAlpha=Math.max(0,(1-r/(34*base))*loud);x.strokeStyle="#ff9a20";x.lineWidth=2;
+   x.beginPath();x.arc(ax,ay+3*base,r,Math.PI*0.75,Math.PI*1.25);x.stroke()}x.globalAlpha=1;
+ x.fillStyle="#6a4a1a";x.font=`${Math.round(5*base)}px "Comic Sans MS"`;x.fillText("roadies' amp",ax,ay+22*base);
+ x.fillStyle="#a06010";x.textAlign="right";x.fillText("analog: strings -> pickups -> 1/4\" jack -> cable -> amp -> sound",ax-22*base,ay-20*base)}
+// AUDIO PATH WALKTHROUGH (owner ~00:2x "show info path for audio in animated way ... from Niky's guitar output"): loops on its own
+// (open the page with #audio, or press A): strings -> pickups -> guitar OUTPUT jack -> black 1/4in mono -> roadies' amp -> sound.
+let AUDIOWALK=location.hash==="#audio";
+function audioWalk(){const C=window.CABLE2,P=window.PICKUP,E=window.ANALOG_END;if(!C||!P||!E)return;const base=window.__base||1,tn=performance.now()/1000,cyc=(tn%20)/20,stage=Math.floor(cyc*5);
+ const steps=["1  Niky plays: the strings vibrate over the pickups","2  The pickups turn it into a tiny analog voltage","3  Out of the guitar's OUTPUT jack (1/4 inch)",
+   "4  Down the black 1/4in mono cable to backstage","5  Into the roadies' amp: louder, out of the speaker"];
+ const ring=(X,Y,col)=>{for(let k=0;k<2;k++){const r=6*base+((tn*20+k*9)%18)*base;x.globalAlpha=Math.max(0,1-r/(24*base));x.strokeStyle=col;x.lineWidth=3;x.beginPath();x.arc(X,Y,r,0,7);x.stroke()}x.globalAlpha=1};
+ if(stage===0||stage===1)ring(P[0],P[1],stage?"#ff9a20":"#7a3ab0");
+ if(stage===2)ring(C[0][0],C[0][1],"#ff9a20");
+ if(stage>=3){const u=stage===3?((cyc*5)%1):1,n=Math.max(1,Math.floor(u*(C.length-1)));x.strokeStyle="rgba(255,154,32,.85)";x.lineWidth=6;x.lineCap="round";
+   x.beginPath();C.slice(0,n+1).forEach((p,i)=>i?x.lineTo(p[0],p[1]):x.moveTo(p[0],p[1]));x.stroke();const h=C[n];x.fillStyle="#fff";x.beginPath();x.arc(h[0],h[1],4*base,0,7);x.fill()}   // the signal travels the cable
+ if(stage===4)ring(E[0]+6*base,E[1]-14*base,"#ff9a20");
+ const t2=steps[stage],fs=Math.round(11*base);x.font=`bold ${fs}px "Comic Sans MS"`;const w2=x.measureText(t2).width+24*base;
+ x.fillStyle="rgba(255,248,232,.96)";x.fillRect(c.width/2-w2/2,c.height*0.04,w2,fs*1.8);x.strokeStyle="#ff9a20";x.lineWidth=2;x.strokeRect(c.width/2-w2/2,c.height*0.04,w2,fs*1.8);
+ x.fillStyle="#7a4a10";x.textAlign="center";x.fillText(t2,c.width/2,c.height*0.04+fs*1.25)}
+function samHarness(){roadieAmp();samTrunks();wireKey();if(AUDIOWALK)audioWalk();const S=POS["Sam"],R=POS["Roby"];if(!S||!R)return;const s=S.s,x0=S.X,y0=S.Y+74*s,   /* the main harness comes in at the bottom of Sam's fork handle */x1=R.X,y1=R.Y+62*s;
+ const sag=Math.min(30*s,Math.abs(x1-x0)*0.25+8*s),pts=[];for(let i=0;i<=24;i++){const u=i/24;pts.push([x0+(x1-x0)*u,y0+(y1-y0)*u+Math.sin(Math.PI*u)*sag])}
+ crayonLine(pts,"#222",4.5);                                                                                                    // the bundle (black loom)
+ for(let k=4;k<24;k+=5){const p=pts[k];x.fillStyle="#666";x.fillRect(p[0]-1.5,p[1]-3,3,6)}                                    // cable ties
+ [[-5,"#3050c0","T1S"],[5,"#e8c020","CAN"]].forEach(([dx,cc,lab],j)=>{const e=pts[24];crayonLine([[e[0],e[1]],[e[0]+dx*s,e[1]-8*s]],cc,2);
+   crayonLine([[e[0]+1,e[1]],[e[0]+dx*s+1,e[1]-8*s]],j?"#30a050":"#f0f0f0",1.2);x.fillStyle=j?"#8a7010":"#2a40a0";
+   x.font=`bold ${Math.round(5*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText(lab,e[0]+dx*2.2*s+(lab==="CAN"?6*s:0),e[1]+13*s)})}   // label tops sit below the bottom of Roby's wheels (owner ~00:1x)   // CAN sits two letters further right (owner ~23:0x)
+// Pingey's lowering linear axis: rigid frame, smooth (no crayon jitter), slow eased serve cycle - roll rides DOWN, handed off, empty tray glides back UP
+function pingeyRail(rx,Y,s){const cyc=(performance.now()/1000/26)%1,ez=u=>0.5-0.5*Math.cos(Math.PI*u),loaded=cyc<0.6;
+ const lo=(cyc<0.5?ez(cyc/0.5):cyc<0.6?1:1-ez((cyc-0.6)/0.4))*16*s;
+ x.strokeStyle="#777";x.lineWidth=3;x.beginPath();x.moveTo(rx,Y-30*s);x.lineTo(rx,Y+30*s);x.stroke();
+ x.strokeStyle="#999";x.lineWidth=1;for(let k=-28;k<=28;k+=5){x.beginPath();x.moveTo(rx-2*s,Y+k*s);x.lineTo(rx+2*s,Y+(k+2)*s);x.stroke()}   // lead screw
+ x.fillStyle="#666";x.fillRect(rx-6*s,Y+30*s,12*s,3*s);                                                                       // base plate on the floor
+ x.fillStyle="#aaa";x.strokeStyle="#555";x.lineWidth=2;x.fillRect(rx-4*s,Y-15*s+lo,8*s,6*s);x.strokeRect(rx-4*s,Y-15*s+lo,8*s,6*s);   // carriage
+ x.strokeStyle="#8a5020";x.lineWidth=2.5;x.beginPath();x.moveTo(rx-10*s,Y-8*s+lo);x.lineTo(rx+10*s,Y-8*s+lo);x.stroke();               // tray
+ if(loaded){x.fillStyle="#f0b060";x.strokeStyle="#c06020";x.beginPath();x.ellipse(rx,Y-11*s+lo,5*s,2.2*s,0,0,7);x.fill();x.stroke()}}
+window.PATTY=CAST.find(c=>c[0]==="__Patty");window.RONNIE=CAST.find(c=>c[0]==="__Ronnie");   // Ronnie only flies                                         // Patty rides on Sassy (and Sandy on Patty)
+for(let i=CAST.length-1;i>=0;i--) if(CAST[i][0].startsWith("__")) CAST.splice(i,1);   // riders are drawn by their mounts
+const phase=CAST.map(()=>Math.random()*6.28),amp=CAST.map(()=>0.7+Math.random()*0.6);
+const IDLE=CAST.map(()=>({sh:0,shTo:0,shT:Math.random()*3000,nk:0,nkTo:0,nkT:2000+Math.random()*8000,ev:null,evAt:0,evUntil:0,evNext:5000+Math.random()*30000}));
+let t0=null,last=0;
+// live level from audio_meter.ps1 (whatever the speakers play: YT Music, Media Player, Baby). Falls back to a 96 BPM clock.
+// Beat + tempo tracker: onsets come from a fast/slow level ratio; the median gap between recent onsets is the tempo,
+// and a beat clock keeps dancing at that tempo between onsets (phase nudged toward each new onset). Energy sets how big the moves are.
+let lvl=0,avg=0.05,fast=0,energy=0,pulse=0,lastBeat=0,live=false,beatCount=0,IV=[],period=625,clock=0,lastTs=0,quietSince=0;
+function pollLevel(){const s=document.createElement("script");s.src="level.js?t="+Date.now();s.onload=()=>{s.remove();const L=window.LEVEL;
+ if(L&&Date.now()-L.t<1500){live=true;lvl=L.p;fast=fast*0.5+lvl*0.5;avg=avg*0.97+lvl*0.03;energy=energy*0.985+lvl*0.015;const now=performance.now();
+  if(fast>avg*1.3&&fast>0.03&&now-lastBeat>280){const iv=now-lastBeat;
+   if(iv>300&&iv<1100){IV.push(iv);if(IV.length>12)IV.shift();const sv=[...IV].sort((a,b)=>a-b);period=sv[sv.length>>1]}
+   const ph=clock%1;clock+=(ph<0.5?-ph:1-ph)*0.5;pulse=1;lastBeat=now;beatCount++}}else live=false};
+ s.onerror=()=>{s.remove();live=false};document.body.appendChild(s)}
+setInterval(pollLevel,50);
+let MOOD=1,SNOOZE=false;
+function frame(ts){if(!t0)t0=ts;const t=(ts-t0)/1000,dt=lastTs?ts-lastTs:16;lastTs=ts;let bt,b,onBeat;
+ pulse*=0.86;const hearing=live&&avg>0.012;
+ if(hearing){clock+=dt/period;quietSince=0}else{clock=t*BPM/60;if(live&&!quietSince)quietSince=ts}
+ bt=clock;b=clock%1;onBeat=Math.max(pulse,Math.pow(1-b,3)*(hearing?0.6:1));
+ SNOOZE=live&&quietSince&&ts-quietSince>4000;                                 // speakers silent a while: sway gently and doze
+ MOOD=SNOOZE?0.15:hearing?Math.min(1.7,0.35+energy*7):1;                      // soft songs = small moves, loud = big
+ const bpm=Math.round(60000/period);
+ document.getElementById("t").textContent=(hearing?"♪ dancing to whatever's playing · ~"+bpm+" BPM · energy "+Math.round(MOOD*60)+"%":SNOOZE?"zZ speakers are quiet":"no audio meter · steady 96 BPM fallback")+(APP?"":" · crayon crew");
+ if(ts-last>1000/24){last=ts;   // ~24 fps redraw: crayon jitter looks hand-drawn
+  x.fillStyle="#f4ecd8";x.fillRect(0,0,c.width,c.height);
+  for(let i=0;i<120;i++){x.fillStyle="rgba(120,100,70,.04)";x.fillRect(Math.random()*c.width,Math.random()*c.height,2,1)}   // paper grain
+  drawTrend(t,1/24);crayonLine([[0,c.height*.8],[c.width,c.height*.8]],"#c8b896",3);
+  // front row = the souls (props are not counted), so they spread out and get bigger; props go to a smaller BACK row (owner ~22:4x)
+  const n=CAST.filter(q=>!q[0].startsWith("~")).length,W=c.width/(n+1),base=Math.min(c.width/n,c.height)/80;window.__base=base;   // helpers outside frame() read the scale from here
+  // isometric floor from the front row back to the back row (owner ~22:5x "back row in an isometric view of what we see now")
+  {const fy=c.height*.62+34*base,by=c.height*.48+18*base,d=(fy-by)*0.9,x0=c.width*0.02,x1=c.width*0.98;
+   x.fillStyle="rgba(214,196,160,.28)";x.beginPath();x.moveTo(x0,fy);x.lineTo(x1,fy);x.lineTo(x1-d*0.2,by);x.lineTo(x0+d,by);x.closePath();x.fill();
+   x.strokeStyle="rgba(150,120,80,.25)";x.lineWidth=1;for(let k=0;k<=10;k++){const u=k/10;x.beginPath();x.moveTo(x0+(x1-x0)*u,fy);x.lineTo(x0+d+((x1-d*0.2)-(x0+d))*u,by);x.stroke()}
+   for(let k=1;k<4;k++){const v=k/4,yy=fy+(by-fy)*v;x.beginPath();x.moveTo(x0+d*v,yy);x.lineTo(x1-d*0.2*v,yy);x.stroke()}
+   x.strokeStyle="rgba(150,120,80,.5)";x.lineWidth=2;x.beginPath();x.moveTo(x0+d,by);x.lineTo(x1-d*0.2,by);x.stroke()}
+  {CAST.forEach(ch=>{if(!ch[0].startsWith("~"))return;const s=base*ch[3]*1.65*(ch[0]==="~fridge"?2.5:1),Y=ch[0]==="~fridge"?Math.min(c.height*0.40-10*s,c.height*.48+18*base-48*s):c.height*0.40;   // fridge high enough that its label stays above the horizon (owner ~23:3x)   // fridge 2.5x (owner ~23:3x)   // back row props, 3x the earlier size (owner ~22:5x)
+    const X=ch[0]==="~laser table"?c.width*0.55-1.5*52*s:ch[0]==="~fridge"?c.width*0.5+20*s:c.width*0.8;   // laser table 1.5 tables left, fridge centre, chair right (owner ~23:0x)
+    x.globalAlpha=0.85;ch[4](X,Y,s,b);x.globalAlpha=1;x.fillStyle="#8a7a66";x.font=`${Math.round(9*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText(ch[0].slice(1),X,Y+40*s)})}
+  if(window.RONNIE){   // Ronnie circles above iNeeda (on Sassy's eye stem), never lands
+   const R=window.RONNIE,s=base*R[3],si=CAST.findIndex(q=>q[0]==="Sassy"),ss=base*(si>=0?CAST[si][3]:1);
+   const nx=si>=0?W*(si+1)+16*ss:c.width*0.5,ny=c.height*.62-83*ss;                                                          // iNeeda's label spot
+   let cx2=c.width*0.5+Math.cos(t*0.05)*c.width*0.36,cy2=Math.max(30*s,c.height*0.16+Math.sin(t*0.3)*c.height*0.015);  // mostly hovers: very slow drift over the crew
+   const ny2=ny+9*ss,dx=cx2-nx,dy=cy2-ny2,d=Math.hypot(dx,dy)||1,keep=Math.max(90*s,W*0.9);                                   // keep-out bubble around iNeeda
+   if(d<keep){cx2=nx+dx/d*keep;cy2=Math.max(30*s,Math.min(ny2+dy/d*keep,c.height*0.45))}
+   const fl=0.35+Math.sin(t*1.3)*0.45;                                                                                          // slow, shallow hover beats
+   [-1,1].forEach(sd=>{x.fillStyle="#e8e8f0";x.globalAlpha=.5;x.beginPath();x.moveTo(cx2-10*s,cy2);x.lineTo(cx2+sd*0-6*s,cy2-26*s*fl*sd);x.lineTo(cx2+14*s,cy2);x.closePath();x.fill();x.globalAlpha=1;
+     crayonLine([[cx2-10*s,cy2],[cx2-2*s,cy2-26*s*fl*sd],[cx2+14*s,cy2]],"#9a9aa8",2.5)});
+   blob(cx2,cy2,16*s,10*s,R[1],3,R[2]);R[4](cx2,cy2+6*s,s,b);
+   crayonLine([[cx2-12*s,cy2+8*s],[cx2-20*s,cy2+10*s]],"#e8a020",2);                                                         // feet tucked back
+   x.font=`bold ${Math.round(11*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.lineJoin="round";                         // readable name tag
+   x.strokeStyle="rgba(250,244,230,.95)";x.lineWidth=Math.max(3,4*s);x.strokeText("Ronnie",cx2,cy2-30*s);
+   x.fillStyle="#4a3a26";x.fillText("Ronnie",cx2,cy2-30*s);
+   // Magoo, Ronnie's friend, the hang-gliding instructor (owner ~20:0x): glides alongside, slow, also clear of iNeeda
+   let mx=cx2+(cx2<c.width*0.5?1:-1)*W*0.9,my=cy2+8*s+Math.sin(t*0.4)*5*s;const md=Math.hypot(mx-nx,my-ny2);if(md<keep){mx=nx+(mx-nx)/md*keep;my=ny2+(my-ny2)/md*keep}
+   my=Math.max(30*s,my);x.save();x.translate(mx,my);x.rotate(Math.sin(t*0.35)*0.08);
+   x.fillStyle="rgba(240,170,40,.35)";x.beginPath();x.moveTo(-26*s,0);x.lineTo(26*s,0);x.lineTo(0,-10*s);x.closePath();x.fill();
+   crayonLine([[-26*s,0],[0,-10*s],[26*s,0],[-26*s,0]],"#c07a10",2.5);crayonLine([[0,-10*s],[0,8*s]],"#555",1.5);crayonLine([[-6*s,8*s],[6*s,8*s]],"#555",1.5);
+   blob(0,14*s,4*s,5*s,"#3a6ab0",2,"#8ab0f0");blob(0,6*s,3*s,3*s,"#3a6ab0",1.5,"#c8dcff");x.restore();
+   x.font=`bold ${Math.round(10*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.strokeStyle="rgba(250,244,230,.95)";x.lineWidth=Math.max(3,4*s);
+   x.strokeText("Magoo",mx,my-16*s);x.fillStyle="#4a3a26";x.fillText("Magoo",mx,my-16*s)}
+  CAST.forEach((ch,i)=>{const[nm,col,fill,sz,extra]=ch,fwd=(STEPS[nm]||0)/3/* Sam 5 steps forward (owner ~22:4x) *//* Sassy and Roby 3 steps forward (lower, bigger); Pingey + her rail 3 steps back (higher, smaller) - owner ~22:3x */,s=base*sz*(1+0.15*fwd)*(GROW[nm]||1),X=W*(i+1)+(XSTEPS[nm]||0)*XSTEP*W+(nm==="Barb"?Math.max(-234*s,40*s-W*(i+1))+Math.sin(performance.now()/9000)*10*s   /* 4.5 dragon lengths to our left in all (owner ~23:5x: +1.5, +1), kept on screen */:Math.sin(bt*Math.PI*.5+phase[i])*6*s)+(nm==="Roby"?Math.sin(t*0.6)*W*0.45:0),
+   Y=c.height*.62+fwd*18*base-(nm==="Barb"?0:onBeat*5*s*amp[i]*MOOD)+(nm==="Barb"?-Math.min(178*base,c.height*.62-60*s)+Math.sin(performance.now()/3200)*3*s:0);   // three bodies up and two dragon-lengths to our left (owner ~23:2x), clear of everyone but Barb   // the Dragon (with Barb) hovers a body higher, calm, not on the beat
+   if(nm.startsWith("~"))return;                                                                                          // props are drawn in the back row above
+   // ---- idle life (owner 11-14 ~19:0x): shoulders turn a few degrees every few s (usually alternating, some randomness),
+   //      the neck sweeps now and then by random amounts, and everyone yawns now and then and coughs / sneezes occasionally
+   const st=IDLE[i],now=performance.now();
+   if(now>st.shT){const flip=Math.random()<0.75;st.shTo=(flip?-1:1)*Math.sign(st.shTo||1)*(2+Math.random()*4)*Math.PI/180;st.shT=now+2000+Math.random()*3500}
+   st.sh+=(st.shTo-st.sh)*0.06;
+   if(now>st.nkT){if(st.nkTo===0){st.nkTo=(Math.random()<.5?-1:1)*(1.5+Math.random()*7);st.nkT=now+1200+Math.random()*2500}else{st.nkTo=0;st.nkT=now+3000+Math.random()*9000}}
+   st.nk+=(st.nkTo-st.nk)*0.05;
+   if(nm==="Sassy"&&!st.script)st.script=[[4000,"yawn"],[10000,"hiccup"],[13500,"hiccup"]];                             // owner ~22:3x: "have Sassy yawn and hiccup"
+   if(st.script&&st.script.length&&now>st.script[0][0]){const ev0=st.script.shift()[1];st.ev=ev0;st.evAt=now;st.evUntil=now+(ev0==="yawn"?2600:700);st.evNext=Math.max(st.evNext,now+15000)}
+   else if(now>st.evNext){const r=Math.random();st.ev=r<0.45?"yawn":r<0.65?"cough":r<0.85?"hiccup":"sneeze";st.evAt=now;st.evUntil=now+(st.ev==="yawn"?2600:st.ev==="hiccup"?700:1000);st.evNext=now+20000+Math.random()*50000}
+   const ev=st.ev&&now<st.evUntil?st.ev:null,ek=ev?(now-st.evAt)/(st.evUntil-st.evAt):0;
+   const jolt=ev==="sneeze"&&ek>0.35?Math.exp(-(ek-0.35)*8)*0.16:ev==="cough"?Math.sin(ek*25)*0.03*(1-ek):ev==="hiccup"?-Math.sin(Math.min(1,ek*3)*Math.PI)*0.07:0;   // hiccup: one quick lurch
+   x.save();x.translate(X,Y+22*s);x.rotate(st.sh+jolt);x.translate(-X,-(Y+22*s));
+   const bw=nm==="Pingey"?8:18;                               // Pingey is skinny
+   if(nm==="Sam"){   // Sam IS a fork (owner ~23:2x): the main harness comes up the handle, the two tines are the two trunks (pedal board, XLR5)
+     x.save();x.translate(X,Y+34*s);x.scale(1,0.8);x.translate(-X,-(Y+34*s));                                                  // 20% shorter, feet stay on the floor (owner ~23:5x)
+     crayonLine([[X,Y+34*s],[X,Y-2*s]],col,7);crayonLine([[X-12*s,Y-2*s],[X+12*s,Y-2*s]],col,6);
+     crayonLine([[X-12*s,Y-2*s],[X-12*s,Y-24*s]],col,5);crayonLine([[X+12*s,Y-2*s],[X+12*s,Y-24*s]],col,5);
+     blob(X,Y-12*s,9*s,8*s,col,2,fill);x.globalAlpha=1;
+     extra(X,Y,s,b);x.restore();x.fillStyle="#6a5a46";x.font=`${Math.round(10*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText(nm,X,c.height*.8+16*s);
+     x.restore();POS[nm]={X,Y:Y-40*s,s};return}                                                                              // handle bottom stays on the floor; the tines sit lower (see samTrunks)
+   blob(X,Y,bw*s,22*s,col,3,fill);
+   const wave=Math.sin(bt*Math.PI+phase[i])*0.9*amp[i]*Math.min(1.3,MOOD);      // one wave per two beats, bigger when the song is loud
+   if(SNOOZE&&i%2===0){x.fillStyle="#8a7a66";x.font=`${Math.round(8*s)}px "Comic Sans MS",cursive`;x.fillText("z",X+14*s,Y-46*s-((t*8+i*5)%14)*s)}
+   arm(X-(bw-2)*s,Y-2*s,18*s,Math.PI+0.5+wave*0.4,col);arm(X+(bw-2)*s,Y-2*s,22*s,-0.9-wave,col);
+   if(nm==="Barb"){   // seated astride the dragon: thighs forward along his back (rotated 90 deg), knees bent, feet down his sides
+     crayonLine([[X-4*s,Y+20*s],[X+12*s,Y+24*s],[X+14*s,Y+36*s]],col,3);crayonLine([[X+4*s,Y+20*s],[X+20*s,Y+23*s],[X+22*s,Y+34*s]],col,3);
+   } else {crayonLine([[X-8*s,Y+20*s],[X-10*s,Y+34*s]],col,3);crayonLine([[X+8*s,Y+20*s],[X+10*s,Y+34*s]],col,3);}
+   x.save();x.translate(st.nk*s,0);extra(X,Y,s,b);                                                    // neck sweep turns the face (and riders) a little
+   if(ev){const open=ev==="yawn"?Math.sin(Math.min(1,ek*1.3)*Math.PI):ev==="sneeze"?(ek<0.35?ek/0.35:0.4):0.6;
+     blob(X+st.nk*0.2*s,Y+4*s,3*s+open*2*s,1*s+open*4*s,"#5a2a1a",1.5,"#3a1a10");                       // open mouth
+     x.font=`bold ${Math.round(8*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillStyle=ev==="sneeze"?"#c02020":"#6a5a46";
+     x.fillText(ev==="yawn"?"*yaaawn*":ev==="cough"?"*cough cough*":ev==="hiccup"?"*hic!*":(ek<0.35?"ah... ah...":"ACHOO!"),X,Y-50*s);
+     if(ev==="sneeze"&&ek>0.35)for(let k=0;k<6;k++){x.fillStyle="rgba(120,170,220,.6)";x.fillRect(X+(14+k*5+ek*20)*s,Y+(Math.sin(k*2.1)*5)*s,2*s,2*s)}}
+   x.restore();x.restore();
+   if(nm==="Pingey")pingeyRail(W*(i+1)+20*s,c.height*.62+fwd*18*base,s);                                          // fixed mount: no dance bounce, no sway
+   if(nm==="Roby"){x.fillStyle="#fff4e8";x.font=`bold ${Math.round(8*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText(nm,X,Y+8*s)}   // Roby's name sits inside her body (owner ~00:3x)
+   else{x.fillStyle="#6a5a46";x.font=`${Math.round(10*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText(nm,X,c.height*.8+16*s)}
+   POS[nm]={X,Y:Y-40*s,s}});
+  // Anj rides an e-trike along the top of the earth (the ground line), short enough to pass under Uncle (owner ~20:1x)
+  {const gy=c.height*.8,sA=base*0.7,span=c.width+80*sA,ax=((t*14*base)%span)-40*sA,wr=5*sA;
+   [ax-12*sA,ax+12*sA].forEach(wx=>{blob(wx,gy-wr,wr,wr,"#333",2,"#666");crayonLine([[wx,gy-wr],[wx+Math.cos(t*5)*wr*.8,gy-wr+Math.sin(t*5)*wr*.8]],"#aaa",1.2)});
+   blob(ax+4*sA,gy-wr,wr*0.8,wr*0.8,"#333",2,"#666");                                                                // third wheel
+   crayonLine([[ax-12*sA,gy-wr],[ax,gy-12*sA],[ax+12*sA,gy-wr]],"#1a8a4a",2.5);x.fillStyle="#2ad06a";x.fillRect(ax-5*sA,gy-12*sA,8*sA,4*sA);   // frame + battery
+   x.fillStyle="#ffe14a";x.fillRect(ax+6*sA,gy-11*sA,2*sA,1.5*sA);                                                   // battery level light
+   blob(ax-2*sA,gy-18*sA,4*sA,5*sA,"#c0607a",2,"#f0a0b8");blob(ax-1*sA,gy-26*sA,3.4*sA,3.4*sA,"#c0607a",2,"#ffd0dc");eye(ax+1*sA,gy-27*sA,1.2*sA);
+   x.fillStyle="#2a8ad8";x.beginPath();x.arc(ax-1*sA,gy-27*sA,4.4*sA,Math.PI,0);x.closePath();x.fill();x.strokeStyle="#1a5a98";x.lineWidth=1.5;x.stroke();   // helmet (owner ~20:5x)
+   x.fillStyle="#fff";x.fillRect(ax-3*sA,gy-30*sA,3*sA,0.9*sA);crayonLine([[ax-4.6*sA,gy-27*sA],[ax-2*sA,gy-23.5*sA]],"#1a5a98",1);                 // stripe + chin strap
+   crayonLine([[ax+1*sA,gy-18*sA],[ax+9*sA,gy-16*sA]],"#c0607a",2);crayonLine([[ax+9*sA,gy-14*sA],[ax+9*sA,gy-18*sA]],"#555",2);   // arm to the handlebar
+   {const wv=Math.sin(t*3.2)*0.35,ex=ax-6*sA,ey=gy-24*sA,hx=ex+Math.sin(wv)*5*sA-1*sA,hy=ey-Math.cos(wv)*5*sA;            // the other arm WAVES as she rides by (owner ~10:1x): elbow up, hand rocking gently
+    crayonLine([[ax-4*sA,gy-19*sA],[ex,ey],[hx,hy]],"#c0607a",2);blob(hx,hy,1.4*sA,1.4*sA,"#c0607a",1.2,"#ffd0dc")}
+   x.fillStyle="#6a5a46";x.font=`${Math.round(7*sA)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText("Anj",ax,gy-33*sA)}
+  // Roomie the roomba patrols back and forth just below the earth's surface, under wherever iNeeda is (owner ~21:0x)
+  {const si=CAST.findIndex(q=>q[0]==="Sassy");if(si>=0){const ss=base*CAST[si][3],ix=W*(si+1)+16*ss,rx=ix+Math.sin(performance.now()/1000*0.12)*10*base,   /* hangs out near iNeeda, slow and calm - not a spaz (owner ~23:4x) */ry=c.height*0.8+7*base,r=7*base;
+    x.fillStyle="#555";x.strokeStyle="#222";x.lineWidth=2;x.beginPath();x.ellipse(rx,ry,r,r*0.42,0,0,7);x.fill();x.stroke();
+    x.fillStyle=Math.sin(performance.now()/1000*0.8)>0?"#5fd07a":"#2a7a3a";x.beginPath();x.arc(rx+r*0.35*Math.sign(Math.cos(performance.now()/1000*0.12)),ry-r*0.12,1.4*base,0,7);x.fill();
+    x.fillStyle="#6a5a46";x.font=`${Math.round(10*base)}px "Comic Sans MS",cursive`;x.textAlign="right";x.fillText("Roomy",rx-r-4*base,ry+3*base)}}   // same size as Alec's label, to the LEFT of the roomba (owner ~22:4x)
+  // Cybil and Toffy SWIM through under the name labels: slow, erratic random paths (owner 11-14 ~19:5x)
+  // they turn around ONLY when the shared laser tip (just past Cybil's nose) reaches a side of the screen - a gentle bounce, never a jump (owner ~22:4x)
+  {const C0=WANDER[0],tip=C0.x+SWIM.dir*(C0.L*base+C0.L*0.9*base);if((SWIM.dir>0&&tip>=c.width-4)||(SWIM.dir<0&&tip<=4)){SWIM.dir*=-1;C0.next=0}}
+  WANDER.forEach((w,wi)=>{const now=performance.now();
+   if(wi===1){const C0=WANDER[0],back=(C0.L+w.L)*1.15*base;                                                         // Toffy keeps BEHIND Cybil so the red tip never burns her (owner ~20:5x)
+     w.tx=C0.x-SWIM.dir*(back+(Math.sin(now/3100)*0.5+0.5)*30*base);w.ty=C0.y+TOFFY_DROP*base;w.spd=0.5;   // Toffy ALWAYS lower than Cybil (sees the shape change first)
+     if(SWIM.dir*(w.x-(C0.x-SWIM.dir*back*0.85))>0){w.spd=0.08;w.pause=0}}                                         // ahead of her after a turn: just drift slowly (she is higher, so she passes over) - no snapping
+   else if(now>w.next||Math.sign(w.tx-w.x)!==SWIM.dir){w.tx=Math.min(c.width*0.97,Math.max(c.width*0.03,w.x+SWIM.dir*(40+Math.random()*260)*base));w.ty=c.height*(0.88+Math.random()*0.08);w.spd=0.15+Math.random()*0.5;w.next=now+1500+Math.random()*6000;
+     if(Math.random()<0.25){w.pause=now+800+Math.random()*2500}}                                                 // sometimes just stop and look around
+   if(!(w.pause>now)){const dx=w.tx-w.x,dy=w.ty-w.y,d=Math.hypot(dx,dy)||1,st=Math.min(d,w.spd*base);
+     w.x+=dx/d*st+(Math.random()-.5)*0.6*base;w.y+=dy/d*st*0.6+(Math.random()-.5)*0.3*base}
+   w.face=SWIM.dir;
+   if(wi===0)w.y=Math.min(c.height-6*base-TOFFY_DROP*base,Math.max(c.height*0.86,w.y));                                   // Cybil leaves room below for Toffy
+   else w.y=WANDER[0].y+TOFFY_DROP*base;                                                                                      // Toffy moves up/down ONLY when Cybil does (owner ~22:5x)
+   w.x=Math.min(c.width-8*base,Math.max(8*base,w.x));
+   // they SWIM (fish). Sizes by volume: Cybil = 1.5x Sassy, Toffy = half of Cybil -> body half-length w.L (base units), height 0.5 L, depth ~0.4 L
+   const s=base,L=w.L*s,H=L*0.5,X=w.x,Y=w.y+Math.sin(now/900+w.ph)*2*s,f=w.face,wig=Math.sin(now/(w.pause>now?600:380)+w.ph);
+   blob(X,Y,L,H,w.col,3,w.fill);                                                                                   // body
+   crayonLine([[X-f*L*0.95,Y],[X-f*L*1.45,Y-H*0.7+wig*H*0.25],[X-f*L*1.45,Y+H*0.7+wig*H*0.25],[X-f*L*0.95,Y]],w.col,3);   // tail, wiggling
+   crayonLine([[X-f*L*0.1,Y-H*0.95],[X-f*L*0.45,Y-H*1.35],[X-f*L*0.5,Y-H*0.9]],w.col,2.5);                            // dorsal fin
+   crayonLine([[X+f*L*0.1,Y+H*0.3],[X-f*L*0.15,Y+H*0.75+wig*H*0.15]],w.col,2);                                        // side fin
+   eye(X+f*L*0.6,Y-H*0.2,Math.max(2,L*0.09));crayonLine([[X+f*L*0.92,Y+H*0.15],[X+f*L*0.8,Y+H*0.22]],w.col,2);           // eye + mouth
+   {const hx=X+f*L*0.35,hy=Y-H*0.9;w.hx=hx+f*4*s;w.hy=hy-2*s;w.nose=X+f*L;                                       // head laser emitter; the beams are drawn after both fish move
+    blob(hx,hy-2*s,4*s,3*s,"#333",2,"#777");x.fillStyle=w.beam;x.fillRect(hx+f*3*s-1.5*s,hy-3.5*s,3*s,3*s)}
+   if(Math.random()<0.01)w.bub.push({x:X+f*L,y:Y-H*0.2,t:now});w.bub=w.bub.filter(q=>now-q.t<2500);                     // the odd bubble
+   w.bub.forEach(q=>{const a=(now-q.t)/2500;blob(q.x+Math.sin(a*9)*2*s,q.y-a*30*s,1.6*s,1.6*s,"rgba(90,140,200,.7)",1)});
+   x.fillStyle="#6a5a46";x.font=`${Math.round(9*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText(w.nm,X,Y-H-6*s)});
+  // both beams meet at ONE point, always further out than Cybil's nose (owner ~20:5x); red is level with the earth, blue converges on the red tip
+  {const C0=WANDER[0],T1=WANDER[1],now=performance.now();if(C0.hx!==undefined&&T1.hx!==undefined){
+    const P=[C0.nose+SWIM.dir*C0.L*0.9*base,C0.hy],fl=0.6+0.4*Math.sin(now/120);
+    [[C0,"#ff2a2a"],[T1,"#2a7aff"]].forEach(([w,col])=>{x.save();x.strokeStyle=col;x.globalAlpha=0.35*fl;x.lineWidth=3*base;x.beginPath();x.moveTo(w.hx,w.hy);x.lineTo(P[0],P[1]);x.stroke();
+      x.globalAlpha=0.9*fl;x.lineWidth=1.2*base;x.stroke();x.restore()});
+    x.fillStyle="rgba(255,255,255,.9)";x.beginPath();x.arc(P[0],P[1],2.2*base*fl,0,7);x.fill();x.fillStyle="rgba(200,90,255,.5)";x.beginPath();x.arc(P[0],P[1],4*base*fl,0,7);x.fill()}}   // the shared tip
+  if(SAY&&performance.now()<SAY.until&&POS[SAY.at]){const p=POS[SAY.at],fs=Math.round(9*base);   // speech bubble over whoever is talking
+   x.font=`${fs}px "Comic Sans MS",cursive`;const tw=x.measureText(SAY.who+": "+SAY.text).width+fs,bx=Math.min(Math.max(p.X-tw/2,4),c.width-tw-4),by=Math.max(4,p.Y-fs*3);
+   x.fillStyle="rgba(255,252,240,.95)";x.strokeStyle="#6a5a46";x.lineWidth=2;x.beginPath();x.roundRect(bx,by,tw,fs*1.8,fs*.6);x.fill();x.stroke();
+   x.beginPath();x.moveTo(p.X-4,by+fs*1.8);x.lineTo(p.X,p.Y-fs*.4);x.lineTo(p.X+6,by+fs*1.8);x.fill();
+   x.fillStyle="#4a3a26";x.textAlign="left";x.fillText(SAY.who+": "+SAY.text,bx+fs/2,by+fs*1.25)}
+  samHarness();if(FALL)fallSim();if(DATA)dataSim();drawRigEvent(t);drawCC()}
+ requestAnimationFrame(frame)}
+// ---- everyone talks when it fits: a bubble always; a voice only when no music is playing (Baby always wins audio, and we never talk over a song)
+// ---- "what goes down when iNeeda falls" (owner ~22:5x) - press I. A walk-through of the response, all simulated:
+// fall -> red beacon (iNeeda) -> Sassy relays pastel purple -> Alec, The Front Desk -> Ronnie circles (clear of her, never over her) ->
+// Roomie brings ice water -> the sip test (Baby's note #1: does the ice water slowly go to and fro?) -> Pingey lowers a lobster roll just in case -> back up.
+let FALL=null;
+const FALLSTEPS=[[0,"iNeeda slips off the eyeball!"],[2.2,"Her glasses beacon goes RED (origin)"],[4.2,"Sassy relays it - PASTEL PURPLE - to Alec, The Front Desk"],
+ [7,"Ronnie circles overhead, clear of her, until help arrives"],[9,"Roomie rolls in with an ice water"],[14,"Sip test: the ice water slowly goes to and fro... she's OK"],
+ [19,"Pingey lowers a lobster roll, just in case"],[23,"Baby Zeus: Is she okay?  ... She's okay!"],[26,"iNeeda climbs back up. Everyone exhales."]];
+function fallSim(){const S=POS["Sassy"],A=POS["Alec"];if(!S){FALL=null;window.FALLING=false;return}const e=(performance.now()-FALL.t0)/1000,s=S.s,base=window.__base||1;
+ if(e>30){FALL=null;window.FALLING=false;return}window.FALLING=e<28;
+ const eyeX=S.X+16*s,eyeY=S.Y+40*s-74*s,gx=S.X+34*s,gy=c.height*.62+30*s,ez=u=>u<0?0:u>1?1:0.5-0.5*Math.cos(Math.PI*u);
+ let ix,iy;if(e<1.4){const u=ez(e/1.4);ix=eyeX+(gx-eyeX)*u;iy=eyeY+(gy-eyeY)*u*u}else if(e<26){ix=gx;iy=gy}else{const u=ez((e-26)/2);ix=gx+(eyeX-gx)*u;iy=gy+(eyeY-gy)*u}
+ if(e<28){blob(ix,iy,6*s,5*s,"#7a5cc8",2,"#b49cff");x.fillStyle="#6a5a46";x.font=`${Math.round(6*s)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillText("iNeeda",ix,iy-9*s)}
+ const pulse=(rr,col,X,Y,ph)=>{for(let k=0;k<2;k++){const r=4*s+((e*24+k*14+ph)%28)*s*0.6;x.globalAlpha=Math.max(0,1-r/(20*s));x.strokeStyle=col;x.lineWidth=2;x.beginPath();x.arc(X,Y,r,0,7);x.stroke()}x.globalAlpha=1};
+ if(e>2.2&&e<22)pulse(0,"#ff3030",ix,iy,0);                                                                                // origin beacon: RED
+ if(e>4.2&&e<22){pulse(0,"#c9a8ff",S.X+16*s,S.Y-34*s,7);if(A){x.setLineDash([4,5]);x.strokeStyle="rgba(201,168,255,.8)";x.lineWidth=2;x.beginPath();x.moveTo(S.X+16*s,S.Y-34*s);x.lineTo(A.X,A.Y);x.stroke();x.setLineDash([]);
+   const u=(e*0.8)%1;x.fillStyle="#c9a8ff";x.beginPath();x.arc(S.X+16*s+(A.X-S.X-16*s)*u,S.Y-34*s+(A.Y-S.Y+34*s)*u,3*s,0,7);x.fill();x.fillStyle="#6a4a9a";x.font=`bold ${Math.round(6*s)}px "Comic Sans MS"`;x.fillText("The Front Desk",A.X,A.Y-6*s)}}
+ if(e>9&&e<24){const rx0=gx+60*s,rx=e<13?rx0+(gx+16*s-rx0)*ez((e-9)/4):gx+16*s,   /* Roomie is already nearby: a short, calm roll over */ry=gy+4*s;x.fillStyle="#555";x.beginPath();x.ellipse(rx,ry,9*s,3.5*s,0,0,7);x.fill();
+   x.fillStyle="#6a5a46";x.font=`${Math.round(5*s)}px "Comic Sans MS"`;x.fillText("Roomie",rx,ry+8*s);
+   const gX=rx,gY=ry-6*s,sway=e>14&&e<18?Math.sin((e-14)*1.6)*0.25:0;x.save();x.translate(gX,gY+4*s);x.rotate(sway);x.fillStyle="rgba(190,225,255,.7)";x.strokeStyle="#7aa0c0";x.lineWidth=1.2;
+   x.beginPath();x.moveTo(-3*s,-8*s);x.lineTo(3*s,-8*s);x.lineTo(2.4*s,0);x.lineTo(-2.4*s,0);x.closePath();x.fill();x.stroke();x.fillStyle="#fff";x.fillRect(-2*s,-6*s,1.6*s,1.6*s);x.fillRect(0.4*s,-4.4*s,1.6*s,1.6*s);x.restore()}   // ice water, slow to-and-fro
+ for(let i=FALLSTEPS.length-1;i>=0;i--)if(e>=FALLSTEPS[i][0]){const t2=FALLSTEPS[i][1];x.fillStyle="rgba(255,252,240,.95)";x.font=`bold ${Math.round(10*base)}px "Comic Sans MS"`;
+   const w2=x.measureText(t2).width+20*base;x.fillRect(c.width/2-w2/2,c.height*0.06,w2,16*base);x.fillStyle="#7a2a2a";x.textAlign="center";x.fillText(t2,c.width/2,c.height*0.06+11.5*base);
+   if(!FALL.said)FALL.said={};if(!FALL.said[i]){FALL.said[i]=1;SAY={who:"Zeus",at:"Alec",text:t2,until:performance.now()+3500}}break}}
+// stage blocking: steps forward (+) / back (-) from the line, as the owner calls them (one step = a third of the depth unit). Totals so far (owner 11-14 ~22:3x-23:0x):
+const STEPS={"Sassy":6,"Roby":8,"Sam":11.5,"Pingey":-4,"the good Dr.":-3,"Alec":-11,"Clawdia":-9};
+const XSTEPS={"Alec":3},XSTEP=0.2,GROW={"Alec":1.5};   // sideways steps to OUR right (+) as a fraction of a slot each, and size multipliers (owner ~23:2x: Alec 5 steps right, 1.5x)
+const CH={hx:[],hy:[],bx:[],by:[]};   // chiro-chair beam start/end history for its trend panel
+const POS={};let SAY=null;const SWIM={dir:1,next:15000},TOFFY_DROP=14;
+// ---- data flow (owner ~22:4x) - press D: PDM/I2S mic -> STM32H7 in Niky's guitar -> external ADIN1100 PHY -> T1L -> roadies backstage ->
+// roadies compute the motion vector of the musician of interest (Niky) -> it steers the HOUSE LIGHTS colour; the good Dr. and Clawdia start a hacky sack.
+let DATA=null,nikyPrev=null,nikyV=[0,0];
+const DSTEPS=[[0,"A PDM mic in Niky's guitar hears the sound"],[3,"PDM/I2S -> the STM32H7 inside the guitar"],[6,"H7 -> external ADIN1100 PHY -> out over the T1L pair"],
+ [10,"Roadies catch it backstage"],[13,"Roadies work out Niky's MOTION VECTOR"],[16,"...and her motion steers the HOUSE LIGHTS colour"],[20,"The good Dr. and Clawdia start a hacky sack"]];
+function dataSim(){const N=POS["Niky"];if(!N){DATA=null;return}const e=(performance.now()-DATA.t0)/1000,s=N.s,base=window.__base||1;if(e>34){DATA=null;return}
+ const gx=N.X-2*s,gy=N.Y+46*s,earth=c.height*.62+34*base-3,bx=c.width-34*base,by=earth-14*base;
+ if(nikyPrev){nikyV[0]=nikyV[0]*0.9+(N.X-nikyPrev[0])*0.1;nikyV[1]=nikyV[1]*0.9+(N.Y-nikyPrev[1])*0.1}nikyPrev=[N.X,N.Y];
+ const box=(X,Y,w,h,fill,lab,col)=>{x.fillStyle=fill;x.fillRect(X-w/2,Y-h/2,w,h);x.strokeStyle="#333";x.lineWidth=1.2;x.strokeRect(X-w/2,Y-h/2,w,h);x.fillStyle=col||"#fff";x.font=`bold ${Math.round(5.5*base)}px "Segoe UI"`;x.textAlign="center";x.fillText(lab,X,Y+2*base)};
+ const dots=(a,b,col,n,sp)=>{for(let k=0;k<n;k++){const u=((e*sp)+k/n)%1;x.fillStyle=col;x.beginPath();x.arc(a[0]+(b[0]-a[0])*u,a[1]+(b[1]-a[1])*u,2*base,0,7);x.fill()}};
+ const mic=[gx-6*s,gy-6*s],h7=[gx+6*s,gy-12*s],phy=[gx+16*s,gy-4*s];
+ box(mic[0],mic[1],12*base,6*base,"#444","PDM mic");if(e>3)box(h7[0],h7[1],16*base,7*base,"#1a5a9a","STM32H7");if(e>6)box(phy[0],phy[1],18*base,7*base,"#7a2a2a","ADIN1100");
+ if(e>1)for(let k=0;k<3;k++){const r=4*base+((e*20+k*8)%20)*base*0.5;x.globalAlpha=Math.max(0,1-r/(14*base));x.strokeStyle="#7a3ab0";x.lineWidth=1.5;x.beginPath();x.arc(mic[0],mic[1],r,Math.PI*0.8,Math.PI*1.2);x.stroke()}x.globalAlpha=1;
+ if(e>3)dots(mic,h7,"#e8a020",3,0.9);if(e>6)dots(h7,phy,"#3050c0",3,0.9);
+ if(e>6){dots(phy,[phy[0]+30*base,earth],"#3050c0",3,0.5);dots([phy[0]+30*base,earth],[bx,by],"#c03030",8,0.35)}
+ if(e>10){box(bx,by,40*base,14*base,"#2a2a2a","ROADIES","#ffd84a")}
+ const ang=Math.atan2(nikyV[1],nikyV[0]||1e-6),mag=Math.min(1,Math.hypot(nikyV[0],nikyV[1])/(0.6*base));
+ if(e>13){const L=24*base*(0.4+mag);x.strokeStyle="#c02020";x.lineWidth=3;x.beginPath();x.moveTo(N.X,N.Y);x.lineTo(N.X+Math.cos(ang)*L,N.Y+Math.sin(ang)*L);x.stroke();
+   x.fillStyle="#c02020";x.font=`bold ${Math.round(6*base)}px "Comic Sans MS"`;x.textAlign="center";x.fillText("motion vector",N.X,N.Y-8*base)}
+ if(e>16){const hue=((ang*180/Math.PI)+360+e*4)%360;x.fillStyle=`hsla(${hue},70%,70%,0.16)`;x.fillRect(0,0,c.width,c.height*.62);
+   for(let k=0;k<3;k++){const lx=c.width*(0.25+k*0.25);x.fillStyle=`hsla(${hue},80%,72%,0.14)`;x.beginPath();x.moveTo(lx-6*base,0);x.lineTo(lx+6*base,0);x.lineTo(lx+40*base,c.height*.62);x.lineTo(lx-40*base,c.height*.62);x.fill()}}
+ const D=POS["the good Dr."],C=POS["Clawdia"];if(e>20&&D&&C){const u=((e-20)*0.5)%2,f=u<1?u:2-u,sx=C.X+(D.X-C.X)*f,sy=Math.min(C.Y,D.Y)+30*base-Math.sin(Math.PI*f)*40*base;
+   x.fillStyle="#c89a40";x.strokeStyle="#7a5a20";x.lineWidth=1.5;x.beginPath();x.arc(sx,sy,3.4*base,0,7);x.fill();x.stroke();x.fillStyle="#6a5a46";x.font=`${Math.round(5*base)}px "Comic Sans MS"`;x.fillText("hacky sack",sx,sy-6*base)}
+ for(let i=DSTEPS.length-1;i>=0;i--)if(e>=DSTEPS[i][0]){const t2=DSTEPS[i][1];x.fillStyle="rgba(255,252,240,.95)";x.font=`bold ${Math.round(10*base)}px "Comic Sans MS"`;
+   const w2=x.measureText(t2).width+20*base;x.fillRect(c.width/2-w2/2,c.height*0.06,w2,16*base);x.fillStyle="#1a3a6a";x.textAlign="center";x.fillText(t2,c.width/2,c.height*0.06+11.5*base);break}}
+// pastel trend strip under the earth (where Anj rides, under the names): Baby's EKG in light pastel (owner ~20:2x)
+const EKG=new Array(240).fill(0);let ekgPh=0;
+function ekgSample(dt){ekgPh=(ekgPh+dt*125/60)%1;const p=ekgPh;   // ~125 bpm, a baby's resting rate
+ return p<0.08?0.12*Math.sin(p/0.08*Math.PI):p<0.16?0:p<0.18?-0.15:p<0.21?1:p<0.24?-0.3:p<0.34?0:p<0.5?0.22*Math.sin((p-0.34)/0.16*Math.PI):0}
+const AMP=new Array(240).fill(0),BR=[],BRW=[];const BRATE=()=>15+2*Math.sin(performance.now()/40000);
+// Baby's words show as captions in the crew too (owner ~21:0x): baby_fadein.ps1 writes ../babypath/baby_now.js while she speaks
+let BABY={speaking:false,text:""};
+setInterval(()=>{const s=document.createElement("script");s.src="../babypath/baby_now.js?t="+Date.now();s.onload=()=>{s.remove();const B=window.BABY||{};
+ BABY={speaking:!!B.speaking&&(Date.now()/1000-B.t<120),text:B.text||""}};s.onerror=()=>s.remove();document.body.appendChild(s)},600);
+// ---- rig channel events (owner ~20:3x-20:4x): an emoji or an ack on the rig channel -> the crew reacts and shows WHO; a check rotates
+const WHO={laptop:"LT",desktop:"DT",mp2:"Alec",alec:"Alec",owner:"Owner",rigclaude:"Front Desk"},RSEEN=new Set();let RFIRST=true,REVQ=[],REV=null;
+function rigEvents(R){const add=(k,ev)=>{if(RSEEN.has(k))return;RSEEN.add(k);if(!RFIRST&&fresh(ev.who+"|"+ev.txt+"|"+ev.e))REVQ.push(ev)};   // same who+event+emoji at most once per 5 min
+ (R.msgs||[]).forEach(m=>{(m.emoji||[]).forEach((e,j)=>add("m|"+m.id+"|"+j,{e,who:WHO[m.from]||m.from,txt:"said",id:m.id}))});
+ Object.entries(R.acks||{}).forEach(([id,o])=>Object.keys(o||{}).forEach(w=>add("a|"+id+"|"+w,{e:"✔",who:WHO[w]||w,txt:"acked",id,spin:true})));
+ Object.entries(R.reactions||{}).forEach(([id,o])=>Object.entries(o||{}).forEach(([k,v])=>{
+   if(Array.isArray(v))v.forEach(w=>add("r|"+id+"|"+w+"|"+k,{e:k,who:WHO[w]||w,txt:"reacted",id,spin:/✔|✅|☑/.test(k)}));
+   else add("r|"+id+"|"+k+"|"+v,{e:String(v),who:WHO[k]||k,txt:"reacted",id,spin:/✔|✅|☑/.test(String(v))})}));
+ RFIRST=false}
+function pollRig(){const s=document.createElement("script");s.src="rig.js?t="+Date.now();s.onload=()=>{s.remove();if(window.RIG&&Date.now()-window.RIG.t<20000)rigEvents(window.RIG)};s.onerror=()=>s.remove();document.body.appendChild(s)}
+setInterval(pollRig,3000);
+function drawRigEvent(t){const base=window.__base||1,now=performance.now();if(!REV&&REVQ.length){REV=REVQ.shift();REV.at=now;pulse=1}
+ if(!REV)return;const k=(now-REV.at)/4500;if(k>1){REV=null;return}
+ const X=c.width*0.5,Y=c.height*0.35-k*c.height*0.12,sz=Math.round(26*base*(1-0.3*k));x.save();x.translate(X,Y);if(REV.spin)x.rotate(k*Math.PI*4);   // the check rotates
+ x.globalAlpha=1-Math.max(0,k-0.75)*4;x.font=`${sz}px "Segoe UI Emoji","Comic Sans MS"`;x.textAlign="center";x.textBaseline="middle";x.fillStyle="#2a9a4a";x.fillText(REV.e,0,0);x.restore();
+ x.globalAlpha=1;x.textBaseline="alphabetic";x.font=`bold ${Math.round(10*base)}px "Comic Sans MS",cursive`;x.textAlign="center";x.fillStyle="#4a3a26";
+ x.fillText(REV.who+" "+REV.txt+(REV.id?" #"+REV.id:""),X,Y+sz*0.9)}
+// ---- closed captions for known text (owner ~20:4x): what a character just said, or what the rig channel just did
+function drawCC(){const base=window.__base||1,now=performance.now();let s="";if(BABY.speaking&&BABY.text)s="Baby Zeus: "+BABY.text;else if(REV)s=REV.who+" "+REV.txt+" "+REV.e+(REV.id?" on #"+REV.id:"");else if(SAY&&now<SAY.until)s=SAY.who+": "+SAY.text;
+ if(!s)return;const fs=Math.round(8*base);x.font=`${fs}px "Segoe UI","Comic Sans MS"`;const w=Math.min(c.width-8,x.measureText(s).width+fs*2);
+ x.fillStyle="rgba(0,0,0,.6)";x.fillRect((c.width-w)/2,c.height*0.8-fs*2.4,w,fs*1.7);x.fillStyle="#fff";x.textAlign="center";x.fillText(s,c.width/2,c.height*0.8-fs*1.1)}
+// trends slower with more on screen (owner ~20:5x): one point per frame (24/s), 1440 points = 60 s across; the EKG point is the peak over its frame so no beat is lost
+const TN=1440;while(EKG.length<TN)EKG.unshift(0);while(AMP.length<TN)AMP.unshift(0);
+function drawTrend(t,dt){const base=window.__base||Math.min(c.width/8,c.height)/90,y0=c.height*0.8+3*base,h=c.height-y0;if(h<10)return;
+ let pk=0;for(let k=0;k<10;k++){const v=ekgSample(dt/10);if(Math.abs(v)>Math.abs(pk))pk=v}EKG.push(pk);AMP.push(live?lvl:0);EKG.splice(0,EKG.length-TN);AMP.splice(0,AMP.length-TN);
+ x.fillStyle="rgba(200,225,250,.18)";x.fillRect(0,y0,c.width,h);x.strokeStyle="rgba(150,190,230,.25)";x.lineWidth=1;
+ for(let i=1;i<4;i++){x.beginPath();x.moveTo(0,y0+h*i/4);x.lineTo(c.width,y0+h*i/4);x.stroke()}
+ x.strokeStyle="#a8d8ff";x.lineWidth=1.3;x.globalAlpha=.9;x.beginPath();EKG.forEach((v,i)=>{const X=i/(EKG.length-1)*c.width,Y=y0+h*0.62-v*h*0.45;i?x.lineTo(X,Y):x.moveTo(X,Y)});x.stroke();x.globalAlpha=1;
+ BR.push(16/60);BR.splice(0,BR.length-TN);   // keep arrays the same length
+ {const yb=y0+h*0.3;x.strokeStyle="#cdb4f0";x.lineWidth=1.5;x.globalAlpha=.9;x.beginPath();                                // iNeeda breathing rate trend, pastel purple (owner ~21:0x)
+  BRW.push(Math.sin(t*2*Math.PI*BRATE()/60));BRW.splice(0,BRW.length-TN);BRW.forEach((v,i)=>{const X=i/(BRW.length-1)*c.width,Y=yb-v*h*0.18;i?x.lineTo(X,Y):x.moveTo(X,Y)});x.stroke();x.globalAlpha=1}
+ const am=Math.max(0.05,...AMP);x.strokeStyle="#b8e8c0";   /* speaker amplitude now pastel GREEN - pink is saved for a female KPI (owner ~21:0x) */x.lineWidth=2;x.globalAlpha=.9;x.beginPath();                        // speaker amplitude, pastel pink, auto-scaled
+ AMP.forEach((v,i)=>{const X=i/(AMP.length-1)*c.width,Y=y0+h*0.95-v/am*h*0.8;i?x.lineTo(X,Y):x.moveTo(X,Y)});x.stroke();x.globalAlpha=1;
+ x.font=`${Math.round(6*base)}px "Comic Sans MS",cursive`;x.textAlign="right";x.fillStyle="#8ab8e0";x.fillText("Baby Zeus EKG (simulated)",c.width-6,c.height-4-7*base);
+ x.fillStyle="#78b888";x.fillText("speaker amplitude (live)",c.width-6,c.height-4);
+ x.fillStyle="#a890d0";x.fillText("iNeeda breathing "+Math.round(BRATE())+"/min (simulated)",c.width-6,c.height-4-14*base)}
+// L = half body length in base units, from volume: Sassy ~ 22.5 x 27.5 x 22.5 (x1.25^3 scale) -> Cybil 1.5x that -> L 47; Toffy half of Cybil -> L 37
+const WANDER=[{nm:"Cybil",L:47,beam:"#ff2a2a",col:"#2a8a8a",fill:"#7fd8d0",x:100,y:9999,tx:0,ty:0,spd:.3,next:0,pause:0,face:1,ph:0,bub:[]},
+              {nm:"Toffy",L:37,beam:"#2a7aff",col:"#8a5a2a",fill:"#d8a060",x:400,y:9999,tx:0,ty:0,spd:.3,next:0,pause:0,face:-1,ph:2,bub:[]}];
+const VOICE={Zeus:["David",0.65,0.9],Sassy:["Zira",1.0,0.95],iNeeda:["Zira",1.25,1.0],Roby:["Zira",1.5,1.1],Niky:["Zira",1.3,1.05],
+  Barb:["Zira",0.95,1.0],Uncle:["David",0.5,0.85],Pingey:["David",1.3,1.15],Ronnie:["David",0.8,0.8],Patty:["Zira",1.1,1.0],Mouse:["Zira",1.8,1.2]};
+const LINES=[["Zeus","Alec","Front desk is open. Everybody dance."],["Zeus","Alec","Hydrate, crew. Ice water for iNeeda."],
+  ["Sassy","Sassy","Half of marketing, all of the moves."],["iNeeda","Sassy","Beacon's red and I'm fine. Keep grooving."],
+  ["Patty","Sassy","Eagle eyes on the dance floor."],["Roby","Roby","Morale check! Four wheels, zero worries."],
+  ["Niky","Niky","Two of my favorite people in one. That's me."],["Barb","Barb","Uncle, a little lower, I want to wave."],
+  ["Uncle","Barb","Hold on to your bucket."],["Mouse","Barb","Shades on. ToF says the floor is level."],
+  ["Pingey","Pingey","Lobster rolls coming down the rail."],["Ronnie","Sassy","All clear from up here."]];
+const SAID={};   // never the same thing twice within 5 minutes (owner ~20:5x)
+function fresh(text){const now=Date.now();if(SAID[text]&&now-SAID[text]<300000)return false;SAID[text]=now;return true}
+function speak(i){let tries=0;while(tries<LINES.length&&!fresh(LINES[i%LINES.length][2])){i++;tries++}if(tries>=LINES.length)return;lineNo=i+1;
+ const[who,at,text]=LINES[i%LINES.length];SAY={who,at,text,until:performance.now()+4500};
+ if(live&&avg>0.02)return;                                   // music on: bubble only
+ try{const u=new SpeechSynthesisUtterance(text),v=VOICE[who]||["Zira",1,1],vs=speechSynthesis.getVoices();
+  u.voice=vs.find(q=>q.name.includes(v[0]))||null;u.pitch=Math.min(2,v[1]);u.rate=v[2];speechSynthesis.cancel();speechSynthesis.speak(u)}catch(e){}}
+let lineNo=0;   // no regular chatter (owner ~20:4x: "no need to say anything regularly") - lines only on T or on an event
+addEventListener("keydown",e=>{if(e.key==="t"||e.key==="T")speak(lineNo++);if((e.key==="i"||e.key==="I")&&!FALL)FALL={t0:performance.now()};if((e.key==="d"||e.key==="D")&&!DATA)DATA={t0:performance.now()};if(e.key==="a"||e.key==="A")AUDIOWALK=!AUDIOWALK});
+if(location.hash==="#data")setTimeout(()=>{DATA={t0:performance.now()}},1500);
+if(location.hash==="#fall")setTimeout(()=>{FALL={t0:performance.now()}},1500);   // T = next line now
+document.getElementById("go").remove();requestAnimationFrame(frame);   // starts dancing at once; press K to play KeysGroove here if nothing else is on
+addEventListener("keydown",e=>{if(e.key==="k"||e.key==="K"){A.paused?A.play().catch(()=>{}):A.pause()}});
+</script></body></html>
