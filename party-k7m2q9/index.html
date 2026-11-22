@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0F1B26">
+<title>Crew Dance Party</title>
+<link rel="stylesheet" href="party.css">
+</head>
+<!-- SYNCPARTY-1121. data-clock="alec": time and playlist come from Alec (/api/time, /api/party), LAN only.
+     The remote copy built by party_publish.py rewrites these to data-clock="device" data-state="schedule.json". -->
+<body data-clock="device" data-state="schedule.json" data-crayon="crayon.html" data-silence="silence.wav">
+<div id="stage">
+  <iframe id="crayon" title="Crayon Crew dance party" hidden></iframe>
+  <video id="film" muted playsinline preload="auto" hidden></video>
+  <div id="card"><div id="cardTitle">Crew Dance Party</div><div id="cardSub"></div></div>
+</div>
+<div id="bar">
+  <div id="now">-</div>
+  <div id="sync">finding Alec's clock…</div>
+  <div id="ctl">
+    <label>my headphones are late by <input id="lat" type="number" min="0" max="500" step="10" value="0"> ms</label>
+    <button id="dj-skip" hidden>Next song</button><button id="dj-restart" hidden>Restart</button>
+  </div>
+</div>
+<div id="join"><button id="joinBtn">🎶 Join the party</button>
+  <p>Everyone hears the same moment of the same song, on their own headphones.<br>Tap once to start sound (phones need a tap).</p>
+  <p id="joinNet"></p></div>
+<script src="party_timeline.js"></script>
+<script src="party.js"></script>
+</body></html>

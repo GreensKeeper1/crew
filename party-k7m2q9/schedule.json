@@ -1,0 +1,36 @@
+{
+ "app": "LoFaFlix",
+ "mode": "party",
+ "version": "SYNCPARTY-1121",
+ "clock": "device",
+ "rev": 1,
+ "title": "Crayon Crew dance party",
+ "t0_ms": 1795305600000.0,
+ "loop": true,
+ "items": [
+  {
+   "id": "danceoff",
+   "title": "Crayon Crew Dance-Off (KeysGroove)",
+   "dur_ms": 96026.1,
+   "visual": "crayon",
+   "bpm": 96,
+   "danceoff": true,
+   "public": true,
+   "credit": "original music by the crew",
+   "url": "tracks/KeysGroove_0525PM_11-14a-2026_CBR192k.mp3",
+   "film": null
+  },
+  {
+   "id": "muralwarm",
+   "title": "Mural Song (Warm)",
+   "dur_ms": 179696.3,
+   "visual": "crayon",
+   "bpm": 72,
+   "danceoff": false,
+   "public": true,
+   "credit": "original music by the crew",
+   "url": "tracks/MuralSongWarm_0332AM_11-17a-2026_CBR192k.mp3",
+   "film": null
+  }
+ ]
+}
