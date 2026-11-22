@@ -97,9 +97,16 @@
       o.removeAttribute("src"); o.load(); delete players[u];
     });
     var a = new Audio(); a.preload = "auto"; players[url] = a;
+    // On a slow link (the remote copy over hotel Wi-Fi: a 4.3 MB song was still downloading after 30 s, silent) stream
+    // after 5 s instead of waiting; a Blob that arrives later is then not swapped in mid-song.
+    var slow = setTimeout(function () { if (players[url] === a && !a.__blob) { a.__streaming = true; a.src = url; } }, 5000);
     fetch(url).then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
-      .then(function (b) { if (players[url] !== a) return; a.__blob = URL.createObjectURL(b); a.src = a.__blob; P.loaded = (P.loaded || 0) + 1; })
-      .catch(function () { if (players[url] === a) a.src = url; });          // fall back to streaming
+      .then(function (b) {
+        clearTimeout(slow);
+        if (players[url] !== a || a.__streaming) return;
+        a.__blob = URL.createObjectURL(b); a.src = a.__blob; P.loaded = (P.loaded || 0) + 1;
+      })
+      .catch(function () { clearTimeout(slow); if (players[url] === a) { a.__streaming = true; a.src = url; } });
     return a;
   }
   function stopAllBut(a, keep2) {
@@ -128,7 +135,7 @@
     // Hand-over to the next song: start it from 0 EARLY by this device's learned start latency, so it is heard on the
     // boundary instead of a few hundred ms after it (the 11-21 measurement showed +-280 ms for ~2 s at each change).
     var left = it.dur_ms - t.pos_ms;
-    if (an && an.paused && an.__blob && an.readyState >= 1 && left < 450 && !an.__armed) {
+    if (an && an.paused && (an.__blob || an.__streaming) && an.readyState >= 1 && left < 450 && !an.__armed) {
       an.__armed = true;
       setTimeout(function () {
         an.currentTime = 0; an.playbackRate = 1;
@@ -137,7 +144,7 @@
       }, Math.max(0, left - 1000 * P.playLead));
     }
     stopAllBut(a, an);
-    if (!a.__blob && a.getAttribute("src") !== it.url) return;   // still downloading (or only the unlock clip)
+    if (!a.__blob && !a.__streaming) return;                      // still downloading (or only the unlock clip)
     if (a.readyState < 1) return;                           // no metadata yet
     var target = t.pos_ms / 1000;
     if (target > a.duration - 0.05) return;                 // the tail end: the next item is about to start
