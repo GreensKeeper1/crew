@@ -99,14 +99,19 @@
     var a = new Audio(); a.preload = "auto"; players[url] = a;
     // On a slow link (the remote copy over hotel Wi-Fi: a 4.3 MB song was still downloading after 30 s, silent) stream
     // after 5 s instead of waiting; a Blob that arrives later is then not swapped in mid-song.
-    var slow = setTimeout(function () { if (players[url] === a && !a.__blob) { a.__streaming = true; a.src = url; } }, 5000);
-    fetch(url).then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
+    // (the abandoned Blob download is aborted: on the hotel link it and the stream split the bandwidth, and the
+    //  playlist polls timed out behind both)
+    var ac = window.AbortController ? new AbortController() : null;
+    var slow = setTimeout(function () {
+      if (players[url] === a && !a.__blob) { if (ac) ac.abort(); a.__streaming = true; a.src = url; }
+    }, 5000);
+    fetch(url, ac ? { signal: ac.signal } : {}).then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
       .then(function (b) {
         clearTimeout(slow);
         if (players[url] !== a || a.__streaming) return;
         a.__blob = URL.createObjectURL(b); a.src = a.__blob; P.loaded = (P.loaded || 0) + 1;
       })
-      .catch(function () { clearTimeout(slow); if (players[url] === a) { a.__streaming = true; a.src = url; } });
+      .catch(function () { clearTimeout(slow); if (players[url] === a && !a.__streaming) { a.__streaming = true; a.src = url; } });
     return a;
   }
   function stopAllBut(a, keep2) {
@@ -130,7 +135,9 @@
     }
     if (t.index >= items.length) { stopAllBut(null); $("now").textContent = "the party is over"; return; }
     var it = items[t.index], a = player(it.url);
-    var nx = items[(t.index + 1) % items.length], an = (nx && nx.url !== it.url) ? player(nx.url) : null;
+    // the next song is fetched only once this one is in hand, so on a slow link the two never compete
+    var nx = items[(t.index + 1) % items.length], ready = a.__blob || (a.__streaming && a.readyState >= 3);
+    var an = (nx && nx.url !== it.url && (ready || players[nx.url])) ? player(nx.url) : null;
     if (t.index !== prevIdx) { prevIdx = t.index; P.errs = []; lastSeek = local(); showVisual(it); $("now").textContent = "♪ " + it.title + (it.credit ? " · " + it.credit : ""); }
     // Hand-over to the next song: start it from 0 EARLY by this device's learned start latency, so it is heard on the
     // boundary instead of a few hundred ms after it (the 11-21 measurement showed +-280 ms for ~2 s at each change).
