@@ -1,0 +1,24 @@
+/* Crew Films comments. Uses the gallery's own colour tokens (--bg, --ink, --card, --line, --acc, --acc2, --mute). */
+.ccw-btn{font-size:13px;padding:4px 10px;cursor:pointer;font-family:inherit}
+.ccw-poster{display:flex;flex-direction:column;gap:6px}.ccw-poster .ccw-btn{align-self:flex-start}
+#ccw{border:1px solid var(--line);border-radius:14px;padding:18px 18px 14px;background:var(--card);color:var(--ink);
+  width:min(560px,calc(100vw - 32px));max-height:min(86vh,820px);display:none;flex-direction:column;gap:10px}
+#ccw[open]{display:flex}
+#ccw::backdrop{background:#000a}
+.ccw-x{position:absolute;top:8px;right:10px;border:0;background:none;color:var(--mute);font-size:26px;line-height:1;cursor:pointer}
+.ccw-head{padding-right:28px}.ccw-head h3{margin:2px 0 0;font:700 20px Georgia,serif}
+.ccw-kind{color:var(--mute);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.ccw-list{overflow-y:auto;flex:1 1 auto;min-height:60px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:6px 0}
+.ccw-c{padding:8px 2px;border-bottom:1px dashed var(--line)}.ccw-c:last-child{border-bottom:0}
+.ccw-c p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.ccw-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;font-size:13px}.ccw-meta span{color:var(--mute)}
+.ccw-pend{font-style:italic}
+.ccw-empty{color:var(--mute);margin:10px 2px}.bad{color:var(--acc)}
+.ccw-form{display:flex;flex-direction:column;gap:8px}
+.ccw-form textarea,.ccw-form input{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px}
+.ccw-form label{display:flex;flex-direction:column;gap:4px;font-size:14px;font-weight:600}
+.ccw-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.ccw-row .btn{margin-left:auto;border:0;cursor:pointer;font-family:inherit}
+.ccw-who{color:var(--mute);font-size:14px}
+.ccw-link{background:none;border:0;color:var(--acc2);cursor:pointer;font:inherit;font-size:14px;padding:0;text-decoration:underline}
+.ccw-note{margin:0 0 6px;font-size:14px}.ccw-small{color:var(--mute);font-size:12px;margin:4px 0 0}
+.ccw-small summary{cursor:pointer}

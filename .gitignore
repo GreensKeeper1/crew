@@ -1,0 +1,5 @@
+server/crew.conf.json
+server/data/
+media/
+*.part
+__pycache__/
